@@ -10,6 +10,7 @@ from app.repositories.recursos import RecursoRepository
 from app.services.certificaciones import CertificacionService
 from app.services.ongs import ONGService
 from app.services.recursos import RecursoService
+from app.services.validaciones import ValidacionService
 
 
 @dataclass
@@ -17,6 +18,7 @@ class Servicios:
     ongs: ONGService
     certificaciones: CertificacionService
     recursos: RecursoService
+    validaciones: ValidacionService
 
 
 def crear_servicios() -> Servicios:
@@ -25,6 +27,7 @@ def crear_servicios() -> Servicios:
         ongs=ongs,
         certificaciones=CertificacionService(CertificacionRepository(), ongs),
         recursos=RecursoService(RecursoRepository(), ongs),
+        validaciones=ValidacionService(RecursoRepository(), ONGRepository()),
     )
 
 

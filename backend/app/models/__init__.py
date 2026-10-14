@@ -2,7 +2,14 @@
 
 from app.models.catalogos import Certificacion, ONGCertificacion, TipoRecurso, UnidadMedida
 from app.models.compromisos import Compromiso, CompromisoItem, Convocatoria
-from app.models.enums import CategoriaRecurso, EstadoCompromiso, EstadoONG
+from app.models.enums import (
+    CategoriaRecurso,
+    EstadoCompromiso,
+    EstadoONG,
+    MotivoNivel,
+    NivelCompetencia,
+    RolSugerido,
+)
 from app.models.organizaciones import ONG
 from app.models.recursos import InventarioRecurso
 
@@ -15,8 +22,11 @@ __all__ = [
     "EstadoCompromiso",
     "EstadoONG",
     "InventarioRecurso",
+    "MotivoNivel",
+    "NivelCompetencia",
     "ONG",
     "ONGCertificacion",
+    "RolSugerido",
     "TipoRecurso",
     "UnidadMedida",
 ]
