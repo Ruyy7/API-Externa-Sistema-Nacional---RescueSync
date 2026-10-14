@@ -1,6 +1,9 @@
 # Variables de entorno reales
 .env
 
+# Instrucciones personales de Claude Code
+CLAUDE.local.md
+
 
 # Python
 __pycache__/
