@@ -4,7 +4,15 @@ from decimal import Decimal
 from sqlalchemy import func, select
 
 from app.extensions import db
-from app.models import EstadoONG, InventarioRecurso, ONG, TipoRecurso
+from app.models import (
+    ONG,
+    Compromiso,
+    CompromisoItem,
+    EstadoCompromiso,
+    EstadoONG,
+    InventarioRecurso,
+    TipoRecurso,
+)
 from app.repositories import paginar, paginar_entidades
 
 
@@ -25,6 +33,61 @@ class RecursoRepository:
         if solo_activos:
             consulta = consulta.where(TipoRecurso.activo)
         return paginar_entidades(consulta, pagina, tamano)
+
+    def codigos_existentes(self, codigos: set[str]) -> set[str]:
+        consulta = select(TipoRecurso.codigo).where(TipoRecurso.codigo.in_(codigos))
+        return set(db.session.scalars(consulta))
+
+    def disponible_por_ong_y_tipo(
+        self, cuits: set[str], codigos: set[str]
+    ) -> dict[tuple[str, str], Decimal]:
+        """Disponible (total - bloqueada - comprometida) por (CUIT, código de tipo).
+
+        Que exista la fila significa que la ONG está inscripta en esa categoría.
+        """
+        consulta = (
+            select(
+                ONG.cuit,
+                TipoRecurso.codigo,
+                InventarioRecurso.cantidad_total
+                - InventarioRecurso.cantidad_bloqueada
+                - InventarioRecurso.cantidad_comprometida,
+            )
+            .select_from(InventarioRecurso)
+            .join(InventarioRecurso.ong)
+            .join(InventarioRecurso.tipo_recurso)
+            .where(ONG.cuit.in_(cuits), TipoRecurso.codigo.in_(codigos))
+        )
+        return {
+            (cuit, codigo): disponible for cuit, codigo, disponible in db.session.execute(consulta)
+        }
+
+    def reservado_por_ofertas(self, ofertas: set[str]) -> dict[tuple[str, str, str], Decimal]:
+        """Lo que cada oferta ya tiene reservado, por (oferta, CUIT, código de tipo).
+
+        Sirve para que una oferta no compita contra su propia reserva al revalidarse.
+        """
+        consulta = (
+            select(
+                Compromiso.oferta_referencia,
+                ONG.cuit,
+                TipoRecurso.codigo,
+                CompromisoItem.cantidad_reservada,
+            )
+            .select_from(CompromisoItem)
+            .join(CompromisoItem.compromiso)
+            .join(Compromiso.ong)
+            .join(CompromisoItem.inventario_recurso)
+            .join(InventarioRecurso.tipo_recurso)
+            .where(
+                Compromiso.oferta_referencia.in_(ofertas),
+                Compromiso.estado == EstadoCompromiso.RESERVADO,
+            )
+        )
+        return {
+            (oferta, cuit, codigo): reservado
+            for oferta, cuit, codigo, reservado in db.session.execute(consulta)
+        }
 
     def inventario_de_ong(self, ong_id: int) -> list[InventarioRecurso]:
         consulta = (

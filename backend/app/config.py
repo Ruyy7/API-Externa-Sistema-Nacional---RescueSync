@@ -45,6 +45,14 @@ class Config:
     OPENAPI_JSON_PATH = "openapi.json"
     OPENAPI_SWAGGER_UI_PATH = "/docs"
     OPENAPI_SWAGGER_UI_URL = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
+    # Habilita el botón "Authorize" de Swagger para los endpoints protegidos con JWT.
+    API_SPEC_OPTIONS = {
+        "components": {
+            "securitySchemes": {
+                "bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+            }
+        }
+    }
 
 
 _OBLIGATORIAS = {"SQLALCHEMY_DATABASE_URI": "DATABASE_URL o POSTGRES_*"}

@@ -47,6 +47,7 @@ GET /api/v1/ongs/{id}/recursos
 GET /api/v1/certificaciones
 GET /api/v1/tipos-recursos
 GET /api/v1/recursos/disponibilidad
+POST /api/v1/validaciones          # I-3.3, requiere JWT
 ```
 
 Filtros útiles de disponibilidad:
@@ -97,6 +98,9 @@ flask --app app --env-file ../.env run --debug --port 5001
 ```
 
 En Docker, Compose continúa inyectando explícitamente `DATABASE_URL` con `db:5432`.
+
+La validación por niveles de competencia (I-3.3), su contrato y cómo probarla con Postman están en
+`docs/03-validacion-por-competencia.md`.
 
 Ver `docs/01-catalogo-y-consulta.md` para las decisiones del punto I-3.2 y
 `docs/02-reservas-y-compromisos.md` para la preparación del modelo de I-3.4.
