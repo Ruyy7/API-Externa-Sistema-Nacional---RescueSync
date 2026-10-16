@@ -19,6 +19,7 @@ from app.models import (
     UnidadMedida,
 )
 from app.security import RolSistema, emitir_token
+from app.services import servicios
 
 # Los códigos de unidad y tipo de recurso son los mismos que usa RescueSync E2.
 UNIDADES_DE_MEDIDA = [
@@ -174,6 +175,16 @@ def registrar_comandos(app: Flask) -> None:
         """Carga ONGs, certificaciones, tipos de recurso e inventario de demostración."""
         cargar_datos_demo()
         click.echo("Datos de demostración del Sistema Nacional cargados.")
+
+    @app.cli.command("vencer-reservas")
+    def vencer_reservas() -> None:
+        """Vence las reservas cuya ventana de adjudicación terminó y libera sus recursos (I-3.4).
+
+        Las operaciones de reserva ya vencen las atrasadas de los recursos que tocan; este comando
+        barre el resto y se puede programar.
+        """
+        cantidad = servicios().compromisos.vencer_atrasados()
+        click.echo(f"Reservas vencidas: {cantidad}.")
 
     @app.cli.command("token-servicio")
     @click.argument("rol", type=click.Choice([rol.value for rol in RolSistema]))

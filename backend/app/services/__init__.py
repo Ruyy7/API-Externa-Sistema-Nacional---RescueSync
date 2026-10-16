@@ -5,9 +5,13 @@ from dataclasses import dataclass
 from flask import current_app
 
 from app.repositories.certificaciones import CertificacionRepository
+from app.repositories.compromisos import CompromisoRepository, ConvocatoriaRepository
+from app.repositories.inventario import InventarioRepository
 from app.repositories.ongs import ONGRepository
 from app.repositories.recursos import RecursoRepository
 from app.services.certificaciones import CertificacionService
+from app.services.compromisos import CompromisoService
+from app.services.convocatorias import ConvocatoriaService
 from app.services.ongs import ONGService
 from app.services.recursos import RecursoService
 from app.services.validaciones import ValidacionService
@@ -19,15 +23,31 @@ class Servicios:
     certificaciones: CertificacionService
     recursos: RecursoService
     validaciones: ValidacionService
+    compromisos: CompromisoService
+    convocatorias: ConvocatoriaService
 
 
-def crear_servicios() -> Servicios:
-    ongs = ONGService(ONGRepository())
+def crear_servicios(config) -> Servicios:
+    ongs_repo = ONGRepository()
+    ongs = ONGService(ongs_repo)
+    compromisos_repo, convocatorias_repo = CompromisoRepository(), ConvocatoriaRepository()
+    lock_timeout_ms = config["LOCK_TIMEOUT_MS"]
+    compromisos = CompromisoService(
+        compromisos_repo,
+        convocatorias_repo,
+        InventarioRepository(),
+        ongs_repo,
+        lock_timeout_ms=lock_timeout_ms,
+    )
     return Servicios(
         ongs=ongs,
         certificaciones=CertificacionService(CertificacionRepository(), ongs),
         recursos=RecursoService(RecursoRepository(), ongs),
-        validaciones=ValidacionService(RecursoRepository(), ONGRepository()),
+        validaciones=ValidacionService(RecursoRepository(), ongs_repo),
+        compromisos=compromisos,
+        convocatorias=ConvocatoriaService(
+            convocatorias_repo, compromisos_repo, compromisos, lock_timeout_ms=lock_timeout_ms
+        ),
     )
 
 
