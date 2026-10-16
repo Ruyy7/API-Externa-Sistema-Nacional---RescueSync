@@ -11,17 +11,17 @@ Riesgos. Está construida siguiendo la misma arquitectura del backend de RescueS
 - Inventario por ONG, distinguiendo recursos bloqueados de recursos ya comprometidos.
 - Tipos de recurso con indicador `reutilizable` para distinguir lo que vuelve al stock de lo consumible.
 - Disponibilidad global agregada por tipo de recurso.
-- Modelo preparado para convocatoria, reserva, adjudicación parcial y liberación, sin exponer todavía
-  endpoints del punto de bloqueo/compromiso.
+- Bloqueo y compromiso de recursos (I-3.4): reserva al presentar la oferta, ajuste, cancelación,
+  compromiso al adjudicar (también parcial) y vencimiento, con locking en PostgreSQL y endpoints
+  protegidos con JWT.
 - PostgreSQL + Alembic.
 - Swagger/OpenAPI con flask-smorest.
 - Seed idempotente.
 - Tests con pytest.
 - Docker Compose.
 
-No implementa todavía login/onboarding, niveles de competencia ni las operaciones HTTP de
-reserva/compromiso/liberación porque corresponden a otros puntos de la Entrega 3. El esquema base
-para esas operaciones sí queda preparado para evitar una remodelación posterior.
+No implementa todavía login/onboarding, niveles de competencia ni la liberación (I-3.5), porque
+corresponden a otros puntos de la Entrega 3.
 
 ## Levantar
 
@@ -58,6 +58,38 @@ GET /api/v1/recursos/disponibilidad?ong_id=1
 GET /api/v1/recursos/disponibilidad?solo_ongs_habilitadas=false
 ```
 
+## Bloqueo y compromiso de recursos (I-3.4)
+
+```text
+POST /api/v1/compromisos/verificacion             valida restricciones sin reservar (webapp)
+POST /api/v1/compromisos                          reserva al presentar la oferta (webapp)
+PUT  /api/v1/compromisos/{id}                     ajusta la reserva al modificar la oferta (webapp)
+POST /api/v1/compromisos/{id}/cancelacion         libera la reserva al retirar la oferta (webapp)
+POST /api/v1/compromisos/{id}/confirmacion        compromete lo adjudicado (webapp o Bonita)
+GET  /api/v1/compromisos y /api/v1/compromisos/{id}
+GET  /api/v1/convocatorias/{referencia}
+PUT  /api/v1/convocatorias/{referencia}           fechas nuevas al reabrir
+POST /api/v1/convocatorias/{referencia}/reformulacion
+```
+
+Estos endpoints exigen un token con el rol de la cuenta de servicio (`SISTEMA_WEBAPP`,
+`SISTEMA_BONITA` o `AUDITOR`). Hasta que exista el login (I-3.1), se puede emitir uno para probar
+desde Swagger (botón *Authorize*):
+
+```bash
+docker compose exec api flask token-servicio SISTEMA_WEBAPP
+```
+
+Las reservas no adjudicadas vencen al terminar la ventana de adjudicación de su convocatoria. Cada
+reserva vence las atrasadas de los recursos que toca, y este comando barre el resto:
+
+```bash
+docker compose exec api flask vencer-reservas
+```
+
+El flujo, las restricciones, el locking y las alternativas descartadas están en
+`docs/04-bloqueo-y-compromiso.md`.
+
 ## Tests y calidad
 
 ```bash
@@ -80,9 +112,8 @@ cantidad_disponible = cantidad_total - cantidad_bloqueada - cantidad_comprometid
 `TipoRecurso.reutilizable` indica qué recursos vuelven al stock al finalizar. Una carpa o una
 persona son reutilizables; una ración, agua o medicamentos son consumibles.
 
-Además se incorporan `convocatoria`, `compromiso` y `compromiso_item` como base del punto I-3.4.
-Todavía no hay endpoints que las modifiquen: el locking con `SELECT ... FOR UPDATE` y las
-transiciones reserva → compromiso → liberación se implementan en ese incremento.
+`convocatoria`, `compromiso` y `compromiso_item` registran qué oferta reservó o comprometió cada
+cantidad. Los cambios en el inventario se hacen con `SELECT ... FOR UPDATE` (ver I-3.4).
 
 ## Ejecución local del backend sin Docker
 
@@ -102,5 +133,6 @@ En Docker, Compose continúa inyectando explícitamente `DATABASE_URL` con `db:5
 La validación por niveles de competencia (I-3.3), su contrato y cómo probarla con Postman están en
 `docs/03-validacion-por-competencia.md`.
 
-Ver `docs/01-catalogo-y-consulta.md` para las decisiones del punto I-3.2 y
-`docs/02-reservas-y-compromisos.md` para la preparación del modelo de I-3.4.
+Ver `docs/01-catalogo-y-consulta.md` para las decisiones del punto I-3.2,
+`docs/02-reservas-y-compromisos.md` para la preparación del modelo de I-3.4 y
+`docs/04-bloqueo-y-compromiso.md` para su implementación.
