@@ -44,6 +44,10 @@ class Prohibido(ErrorDeDominio):
     codigo = "PROHIBIDO"
 
 
+class TransicionInvalida(Conflicto):
+    codigo = "TRANSICION_INVALIDA"
+
+
 _POR_ESTADO = {
     400: ("SOLICITUD_INVALIDA", "La solicitud no es válida."),
     401: ("NO_AUTENTICADO", "Se requiere iniciar sesión."),
