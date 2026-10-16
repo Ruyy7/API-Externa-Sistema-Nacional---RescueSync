@@ -33,7 +33,8 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
-    # El punto 1 de la E3 agregará login y protección de endpoints. Se deja preparada la extensión.
+    # Los endpoints de I-3.4 exigen el token de una cuenta de servicio (app/security.py). El login
+    # que emite esos tokens es parte del punto I-3.1.
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
@@ -45,7 +46,7 @@ class Config:
     OPENAPI_JSON_PATH = "openapi.json"
     OPENAPI_SWAGGER_UI_PATH = "/docs"
     OPENAPI_SWAGGER_UI_URL = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
-    # Habilita el botón "Authorize" de Swagger para los endpoints protegidos con JWT.
+    # Esquema del token para Swagger; cada endpoint protegido lo declara con @bp.doc(security=...)
     API_SPEC_OPTIONS = {
         "components": {
             "securitySchemes": {
@@ -55,7 +56,10 @@ class Config:
     }
 
 
-_OBLIGATORIAS = {"SQLALCHEMY_DATABASE_URI": "DATABASE_URL o POSTGRES_*"}
+_OBLIGATORIAS = {
+    "SQLALCHEMY_DATABASE_URI": "DATABASE_URL o POSTGRES_*",
+    "JWT_SECRET_KEY": "JWT_SECRET_KEY",
+}
 
 
 def validar(config) -> None:
