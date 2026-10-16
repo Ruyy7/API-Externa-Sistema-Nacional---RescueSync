@@ -13,6 +13,7 @@ from app.controllers import registrar_blueprints
 from app.errors import registrar_manejadores_de_error
 from app.extensions import api, db, jwt, migrate
 from app.logs import configurar_logging
+from app.security import configurar_jwt
 from app.services import crear_servicios
 
 
@@ -24,7 +25,8 @@ def create_app(config: type[Config] = Config) -> Flask:
 
     db.init_app(app)
     migrate.init_app(app, db)
-    jwt.init_app(app)  # preparado para que el punto I-3.1 agregue autenticación sin rehacer factory
+    jwt.init_app(app)
+    configurar_jwt(jwt)
     api.init_app(app)
     registrar_blueprints(api)
     registrar_manejadores_de_error(app)

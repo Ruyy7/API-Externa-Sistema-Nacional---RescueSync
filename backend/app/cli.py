@@ -9,15 +9,16 @@ from sqlalchemy import select
 
 from app.extensions import db
 from app.models import (
+    ONG,
     CategoriaRecurso,
     Certificacion,
     EstadoONG,
     InventarioRecurso,
-    ONG,
     ONGCertificacion,
     TipoRecurso,
     UnidadMedida,
 )
+from app.security import RolSistema, emitir_token
 
 # Los códigos de unidad y tipo de recurso son los mismos que usa RescueSync E2.
 UNIDADES_DE_MEDIDA = [
@@ -173,3 +174,13 @@ def registrar_comandos(app: Flask) -> None:
         """Carga ONGs, certificaciones, tipos de recurso e inventario de demostración."""
         cargar_datos_demo()
         click.echo("Datos de demostración del Sistema Nacional cargados.")
+
+    @app.cli.command("token-servicio")
+    @click.argument("rol", type=click.Choice([rol.value for rol in RolSistema]))
+    @click.option("--horas", default=8, show_default=True, help="Validez del token.")
+    def token_servicio(rol: str, horas: int) -> None:
+        """Emite un token de cuenta de servicio para probar los endpoints protegidos.
+
+        Es temporal: lo reemplaza el /login del punto I-3.1.
+        """
+        click.echo(emitir_token(rol.lower(), RolSistema(rol), horas))

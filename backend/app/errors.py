@@ -39,6 +39,11 @@ class Conflicto(ErrorDeDominio):
     codigo = "CONFLICTO"
 
 
+class Prohibido(ErrorDeDominio):
+    http_status = HTTPStatus.FORBIDDEN
+    codigo = "PROHIBIDO"
+
+
 _POR_ESTADO = {
     400: ("SOLICITUD_INVALIDA", "La solicitud no es válida."),
     401: ("NO_AUTENTICADO", "Se requiere iniciar sesión."),
