@@ -48,6 +48,18 @@ class TransicionInvalida(Conflicto):
     codigo = "TRANSICION_INVALIDA"
 
 
+class RecursosInsuficientes(Conflicto):
+    """La ONG no tiene disponible lo que se pide reservar (I-3.4)."""
+
+    codigo = "RECURSOS_INSUFICIENTES"
+
+
+class RecursoOcupado(Conflicto):
+    """Otra operación tiene bloqueadas las filas del inventario: el cliente puede reintentar."""
+
+    codigo = "RECURSO_OCUPADO"
+
+
 _POR_ESTADO = {
     400: ("SOLICITUD_INVALIDA", "La solicitud no es válida."),
     401: ("NO_AUTENTICADO", "Se requiere iniciar sesión."),

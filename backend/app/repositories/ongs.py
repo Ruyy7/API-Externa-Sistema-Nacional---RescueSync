@@ -9,6 +9,9 @@ class ONGRepository:
     def obtener(self, ong_id: int) -> ONG | None:
         return db.session.get(ONG, ong_id)
 
+    def por_cuit(self, cuit: str) -> ONG | None:
+        return db.session.scalar(select(ONG).where(ONG.cuit == cuit))
+
     def por_cuits(self, cuits: set[str]) -> dict[str, ONG]:
         return {ong.cuit: ong for ong in db.session.scalars(select(ONG).where(ONG.cuit.in_(cuits)))}
 

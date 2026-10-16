@@ -37,6 +37,9 @@ class Config:
     # que emite esos tokens es parte del punto I-3.1.
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 
+    # Tope de espera por una fila bloqueada antes de responder 409 RECURSO_OCUPADO (I-3.4)
+    LOCK_TIMEOUT_MS = int(os.environ.get("LOCK_TIMEOUT_MS", 5000))
+
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 
     API_TITLE = "Sistema Nacional de Gestión de Recursos y Riesgos"

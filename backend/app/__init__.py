@@ -32,5 +32,5 @@ def create_app(config: type[Config] = Config) -> Flask:
     registrar_manejadores_de_error(app)
     registrar_comandos(app)
 
-    app.extensions["servicios"] = crear_servicios()
+    app.extensions["servicios"] = crear_servicios(app.config)
     return app
