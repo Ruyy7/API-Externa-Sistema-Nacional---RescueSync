@@ -145,12 +145,17 @@ def test_la_reserva_propia_no_cuenta_en_contra(client, auth):
     )
     convocatoria = Convocatoria(
         referencia="CONV-1",
+        emergencia_referencia="EMG-1",
         fecha_cierre=datetime(2026, 10, 20, tzinfo=UTC),
         fecha_limite_adjudicacion=datetime(2026, 10, 25, tzinfo=UTC),
     )
-    compromiso = Compromiso(convocatoria=convocatoria, ong=ong, oferta_referencia="OF-1")
+    compromiso = Compromiso(
+        convocatoria=convocatoria, ong=ong, oferta_referencia="OF-1", creado_por="tests"
+    )
     compromiso.items.append(
-        CompromisoItem(inventario_recurso=inventario, cantidad_reservada=Decimal("2"))
+        CompromisoItem(
+            ong_id=ong.id, inventario_recurso=inventario, cantidad_reservada=Decimal("2")
+        )
     )
     db.session.add(compromiso)
     db.session.commit()
