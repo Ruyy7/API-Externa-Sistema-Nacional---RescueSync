@@ -108,7 +108,8 @@ docker compose exec api flask vencer-reservas
 ```
 
 El flujo, las restricciones, el locking y las alternativas descartadas están en
-`docs/04-bloqueo-y-compromiso.md`.
+`docs/04-bloqueo-y-compromiso.md`. Los casos de prueba en Postman, listos para correr contra
+Render, están en `docs/postman/casos-de-prueba-i-3.4.md`.
 
 ## Despliegue en Render
 
