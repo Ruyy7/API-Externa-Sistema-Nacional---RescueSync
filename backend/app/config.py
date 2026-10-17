@@ -13,7 +13,7 @@ def _database_url() -> str | None:
 
     explicita = os.environ.get("DATABASE_URL")
     if explicita:
-        return explicita
+        return _con_driver_psycopg(explicita)
 
     usuario = os.environ.get("POSTGRES_USER")
     password = os.environ.get("POSTGRES_PASSWORD")
@@ -29,6 +29,14 @@ def _database_url() -> str | None:
     )
 
 
+def _con_driver_psycopg(url: str) -> str:
+    """Render entrega la URL como postgres://...; SQLAlchemy con psycopg 3 necesita el driver."""
+    for esquema in ("postgres://", "postgresql://"):
+        if url.startswith(esquema):
+            return "postgresql+psycopg://" + url.removeprefix(esquema)
+    return url
+
+
 class Config:
     SQLALCHEMY_DATABASE_URI = _database_url()
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
@@ -41,6 +49,13 @@ class Config:
     LOCK_TIMEOUT_MS = int(os.environ.get("LOCK_TIMEOUT_MS", 5000))
 
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+
+    # Cuentas de servicio que crea `flask cuentas-servicio` (I-3.1): {usuario: (rol, contraseña)}
+    CUENTAS_DE_SERVICIO = {
+        "webapp": ("SISTEMA_WEBAPP", os.environ.get("CUENTA_WEBAPP_PASSWORD")),
+        "bonita": ("SISTEMA_BONITA", os.environ.get("CUENTA_BONITA_PASSWORD")),
+        "auditor": ("AUDITOR", os.environ.get("CUENTA_AUDITOR_PASSWORD")),
+    }
 
     API_TITLE = "Sistema Nacional de Gestión de Recursos y Riesgos"
     API_VERSION = "v1"

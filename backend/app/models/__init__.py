@@ -2,6 +2,7 @@
 
 from app.models.catalogos import Certificacion, ONGCertificacion, TipoRecurso, UnidadMedida
 from app.models.compromisos import Compromiso, CompromisoItem, Convocatoria
+from app.models.cuentas import Cuenta
 from app.models.enums import (
     CategoriaRecurso,
     EstadoCompromiso,
@@ -19,6 +20,7 @@ __all__ = [
     "Compromiso",
     "CompromisoItem",
     "Convocatoria",
+    "Cuenta",
     "EstadoCompromiso",
     "EstadoONG",
     "InventarioRecurso",

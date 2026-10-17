@@ -1,9 +1,10 @@
 """Autenticación con JWT y control de acceso por rol.
 
-A la API del Sistema Nacional la llaman sistemas, no personas: la webapp RescueSync y Bonita. Cada
-uno usa una cuenta de servicio, y su token lleva el rol en el claim `rol`. El login que emite esos
-tokens es parte del punto I-3.1; mientras no exista, `flask token-servicio` emite tokens para
-probar los endpoints desde Swagger.
+A la API del Sistema Nacional la llaman sistemas: la webapp RescueSync y Bonita, cada uno con una
+cuenta de servicio. Las ONGs también tienen cuenta, que crean al registrarse (I-3.1), para
+consultar y actualizar sus categorías. El token lleva el rol en el claim `rol` y, si es de una ONG,
+su CUIT en `ong_cuit`. Los tokens los emite `POST /login`; `flask token-servicio` sigue
+disponible para probar en desarrollo.
 """
 
 from datetime import timedelta
@@ -16,6 +17,7 @@ from flask_jwt_extended import JWTManager, create_access_token, get_jwt, verify_
 from app.errors import Prohibido
 
 CLAIM_ROL = "rol"
+CLAIM_ONG = "ong_cuit"
 # Para que Swagger muestre el candado en los endpoints protegidos: @bp.doc(security=SEGURIDAD)
 SEGURIDAD = [{"bearerAuth": []}]
 
@@ -24,6 +26,11 @@ class RolSistema(StrEnum):
     WEBAPP = "SISTEMA_WEBAPP"
     BONITA = "SISTEMA_BONITA"
     AUDITOR = "AUDITOR"
+    # Cuenta de una ONG registrada (I-3.1): solo gestiona sus propias categorías
+    ONG = "ONG"
+
+
+ROLES_DE_SERVICIO = (RolSistema.WEBAPP, RolSistema.BONITA, RolSistema.AUDITOR)
 
 
 def configurar_jwt(jwt: JWTManager) -> None:
@@ -61,10 +68,17 @@ def roles_required(*roles: RolSistema):
     return decorador
 
 
-def emitir_token(identidad: str, rol: RolSistema, horas: int = 8) -> str:
-    """Token de una cuenta de servicio. Lo usan `flask token-servicio` y los tests."""
+def emitir_token(
+    identidad: str, rol: RolSistema, horas: int = 8, claims: dict | None = None
+) -> str:
+    """Token de una cuenta. Lo usan `POST /login`, `flask token-servicio` y los tests."""
     return create_access_token(
         identity=identidad,
-        additional_claims={CLAIM_ROL: rol.value},
+        additional_claims={CLAIM_ROL: rol.value, **(claims or {})},
         expires_delta=timedelta(hours=horas),
     )
+
+
+def cuit_del_token() -> str:
+    """CUIT de la ONG dueña del token. Solo tiene sentido detrás de roles_required(ONG)."""
+    return get_jwt()[CLAIM_ONG]
