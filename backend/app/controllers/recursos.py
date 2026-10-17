@@ -14,7 +14,7 @@ from app.services import servicios
 bp = Blueprint("Recursos", __name__, url_prefix="/api/v1", description="Recursos")
 
 
-@bp.route("/tipos")
+@bp.route("/tipos-recursos")
 class TiposRecurso(MethodView):
     @bp.arguments(TipoRecursoFiltrosSchema, location="query")
     @bp.response(200, TipoRecursoSchema(many=True))

@@ -1,11 +1,18 @@
 """ONGs registradas en el Sistema Nacional."""
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.extensions import db
 from app.models.comun import ConMarcasDeTiempo, IdGrande, columna_enum
 from app.models.enums import EstadoONG
+
+# Solo para los type hints: importarlos de verdad generaría un import circular
+if TYPE_CHECKING:
+    from app.models.catalogos import ONGCertificacion
+    from app.models.recursos import InventarioRecurso
 
 
 class ONG(ConMarcasDeTiempo, db.Model):
@@ -23,16 +30,13 @@ class ONG(ConMarcasDeTiempo, db.Model):
         server_default=EstadoONG.PENDIENTE.value,
     )
 
-    certificaciones: Mapped[list["ONGCertificacion"]] = relationship(
+    certificaciones: Mapped[list[ONGCertificacion]] = relationship(
         back_populates="ong", cascade="all, delete-orphan"
     )
-    inventario: Mapped[list["InventarioRecurso"]] = relationship(
+    inventario: Mapped[list[InventarioRecurso]] = relationship(
         back_populates="ong", cascade="all, delete-orphan"
     )
 
     @property
     def habilitada(self) -> bool:
         return self.estado == EstadoONG.HABILITADA
-
-
-# Evita imports circulares solo para los type hints de SQLAlchemy.

@@ -14,7 +14,7 @@ class _Tolerante(Schema):
         unknown = EXCLUDE
 
 
-class ItemPedidoSchema(_Tolerante):
+class ItemValidacionSchema(_Tolerante):
     lote_referencia = fields.Str(required=True, validate=_REFERENCIA)
     ong_cuit = fields.Str(
         required=True,
@@ -39,7 +39,7 @@ class ItemPedidoSchema(_Tolerante):
 class OfertaPedidoSchema(_Tolerante):
     oferta_referencia = fields.Str(required=True, validate=_REFERENCIA)
     items = fields.List(
-        fields.Nested(ItemPedidoSchema), required=True, validate=validate.Length(min=1)
+        fields.Nested(ItemValidacionSchema), required=True, validate=validate.Length(min=1)
     )
 
 

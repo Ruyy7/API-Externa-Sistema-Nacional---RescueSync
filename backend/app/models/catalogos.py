@@ -1,6 +1,7 @@
 """Certificaciones y catálogo compartido de tipos de recurso."""
 
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Date, ForeignKey, SmallInteger, String, Text, false, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -8,6 +9,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.extensions import db
 from app.models.comun import IdCatalogo, columna_enum
 from app.models.enums import CategoriaRecurso
+
+# Solo para el type hint de ONGCertificacion.ong: importarlo de verdad generaría un import circular
+if TYPE_CHECKING:
+    from app.models.organizaciones import ONG
 
 
 class Certificacion(db.Model):
@@ -32,7 +37,7 @@ class ONGCertificacion(db.Model):
     fecha_emision: Mapped[date] = mapped_column(Date)
     fecha_vencimiento: Mapped[date | None] = mapped_column(Date)
 
-    ong: Mapped["ONG"] = relationship(back_populates="certificaciones")
+    ong: Mapped[ONG] = relationship(back_populates="certificaciones")
     certificacion: Mapped[Certificacion] = relationship()
 
     @property

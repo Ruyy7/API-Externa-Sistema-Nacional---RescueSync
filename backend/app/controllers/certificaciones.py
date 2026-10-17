@@ -6,9 +6,7 @@ from flask_smorest import Blueprint
 from app.schemas.certificaciones import CertificacionFiltrosSchema, CertificacionSchema
 from app.services import servicios
 
-bp = Blueprint(
-    "Certificaciones", __name__, url_prefix="/api/v1", description="Certificaciones"
-)
+bp = Blueprint("Certificaciones", __name__, url_prefix="/api/v1", description="Certificaciones")
 
 
 @bp.route("/certificaciones")
