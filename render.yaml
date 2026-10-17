@@ -1,0 +1,42 @@
+# Blueprint de Render: la API del Sistema Nacional y su base PostgreSQL.
+# En el panel de Render: New → Blueprint → este repositorio. Ver "Despliegue" en el README.
+services:
+  - type: web
+    name: rescuesync-sistema-nacional
+    runtime: docker
+    plan: free
+    region: virginia
+    # Mientras no se mergee a main; después se cambia desde el panel (la URL no cambia)
+    branch: feature/login-onboarding
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: sh arranque-produccion.sh
+    healthCheckPath: /api/v1/openapi.json
+    # Redespliega con cada push a la rama
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rescuesync-sistema-nacional-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOCK_TIMEOUT_MS
+        value: "5000"
+      # Contraseñas de las cuentas de servicio: Render las pide al crear el Blueprint
+      - key: CUENTA_WEBAPP_PASSWORD
+        sync: false
+      - key: CUENTA_BONITA_PASSWORD
+        sync: false
+      - key: CUENTA_AUDITOR_PASSWORD
+        sync: false
+
+databases:
+  - name: rescuesync-sistema-nacional-db
+    plan: free
+    region: virginia
+    databaseName: sistema_nacional
+    user: sistema_nacional
+    postgresMajorVersion: "17"

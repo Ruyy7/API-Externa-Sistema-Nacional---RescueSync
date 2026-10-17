@@ -1,0 +1,621 @@
+{
+  "info": {
+    "name": "RescueSync · Sistema Nacional · I-3.1 Login y registro de ONGs",
+    "description": "Casos de prueba del punto I-3.1: registro directo de ONGs con sus categorías y login con JWT.\n\n1. En la pestaña **Variables**, poner en `base_url` la URL de la API: la de Render (`https://<servicio>.onrender.com/api/v1`) o `http://localhost:5001/api/v1`.\n2. Para los casos con la cuenta de servicio, poner en `password_webapp` la contraseña de `CUENTA_WEBAPP_PASSWORD` (en Render: Environment del servicio).\n3. Ejecutar los pedidos en orden, o toda la colección con **Run collection**.\n\nCada corrida genera un CUIT válido y un email nuevos (`cuit_nuevo`, `email_nuevo`), así se puede repetir contra la misma base sin que el registro choque con uno anterior.\n\nSi la API está en el plan gratuito de Render, el primer pedido puede tardar cerca de un minuto: el servicio se \"duerme\" cuando no se usa.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5001/api/v1"
+    },
+    {
+      "key": "password_ong",
+      "value": "clave-segura-1"
+    },
+    {
+      "key": "password_webapp",
+      "value": ""
+    },
+    {
+      "key": "cuit_nuevo",
+      "value": ""
+    },
+    {
+      "key": "email_nuevo",
+      "value": ""
+    },
+    {
+      "key": "token_ong",
+      "value": ""
+    },
+    {
+      "key": "token_webapp",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Un CUIT con dígito verificador válido y un email nuevos por corrida (solo la",
+          "// primera vez: los demás pedidos usan los mismos)",
+          "if (!pm.collectionVariables.get(\"cuit_nuevo\") || pm.info.requestName.startsWith(\"1.1\")) {",
+          "    let base, resto;",
+          "    do {",
+          "        base = \"30\" + String(Math.floor(Math.random() * 1e8)).padStart(8, \"0\");",
+          "        const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];",
+          "        resto = [...base].reduce((s, d, i) => s + Number(d) * pesos[i], 0) % 11;",
+          "    } while (resto === 1);",
+          "    const verificador = resto === 0 ? 0 : 11 - resto;",
+          "    pm.collectionVariables.set(\"cuit_nuevo\", `${base.slice(0, 2)}-${base.slice(2)}-${verificador}`);",
+          "    pm.collectionVariables.set(\"email_nuevo\", `ong-${Date.now()}@ejemplo.org.ar`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Registro y cuenta de la ONG",
+      "item": [
+        {
+          "name": "1.1 Registrar una ONG con sus categorías",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs"
+              ]
+            },
+            "description": "**POST /api/v1/ongs** (público)\n\nRegistro directo, sin aprobación posterior. La ONG se inscribe en categorías (tipos de recurso del catálogo) y declara el máximo de cada una. Queda `HABILITADA` y con una cuenta para iniciar sesión con su email.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razon_social\": \"Brigada Solidaria Sur\",\n  \"cuit\": \"{{cuit_nuevo}}\",\n  \"email_contacto\": \"{{email_nuevo}}\",\n  \"telefono\": \"221 555-0101\",\n  \"password\": \"{{password_ong}}\",\n  \"categorias\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad_maxima\": 10\n    },\n    {\n      \"tipo_recurso\": \"AGUA_POTABLE\",\n      \"cantidad_maxima\": 1500\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const ong = pm.response.json();",
+                  "pm.test(\"Queda habilitada con sus dos categorías\", function () {",
+                  "    pm.expect(ong.estado).to.eql(\"HABILITADA\");",
+                  "    pm.expect(ong.categorias).to.have.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 El mismo CUIT no se registra dos veces",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs"
+              ]
+            },
+            "description": "Repite el registro anterior con otro email: responde **409 CUIT_DUPLICADO**.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razon_social\": \"Brigada Solidaria Sur\",\n  \"cuit\": \"{{cuit_nuevo}}\",\n  \"email_contacto\": \"otro-{{email_nuevo}}\",\n  \"telefono\": \"221 555-0101\",\n  \"password\": \"{{password_ong}}\",\n  \"categorias\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad_maxima\": 10\n    },\n    {\n      \"tipo_recurso\": \"AGUA_POTABLE\",\n      \"cantidad_maxima\": 1500\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"CUIT_DUPLICADO\", () => pm.expect(pm.response.json().codigo).to.eql(\"CUIT_DUPLICADO\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Un CUIT con dígito verificador incorrecto se rechaza",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs"
+              ]
+            },
+            "description": "El CUIT `30-71234567-2` tiene el formato bien pero el dígito verificador mal: responde **422**, con el error en `detalles.json.cuit`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razon_social\": \"Brigada Solidaria Sur\",\n  \"cuit\": \"30-71234567-2\",\n  \"email_contacto\": \"dv-{{email_nuevo}}\",\n  \"telefono\": \"221 555-0101\",\n  \"password\": \"{{password_ong}}\",\n  \"categorias\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad_maxima\": 10\n    },\n    {\n      \"tipo_recurso\": \"AGUA_POTABLE\",\n      \"cantidad_maxima\": 1500\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 Unprocessable Entity\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "pm.test(\"El error es del CUIT\", () => pm.expect(pm.response.json().detalles.json).to.have.property(\"cuit\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 Login de la ONG",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "**POST /api/v1/login** (público)\n\nLa ONG entra con su email y su contraseña. Devuelve el JWT (8 horas) con `rol: ONG`. Se guarda en `token_ong`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{email_nuevo}}\",\n  \"password\": \"{{password_ong}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const token = pm.response.json();",
+                  "pm.test(\"Rol ONG\", () => pm.expect(token.rol).to.eql(\"ONG\"));",
+                  "pm.collectionVariables.set(\"token_ong\", token.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 Credenciales incorrectas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Contraseña equivocada: **401 CREDENCIALES_INVALIDAS**. Responde lo mismo si el usuario no existe, para no revelar qué cuentas hay.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{email_nuevo}}\",\n  \"password\": \"no-es-la-clave\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test(\"CREDENCIALES_INVALIDAS\", () => pm.expect(pm.response.json().codigo).to.eql(\"CREDENCIALES_INVALIDAS\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.6 La ONG consulta sus categorías",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_ong}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/yo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "yo"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/yo** (token de ONG)\n\nLa ONG del token con sus categorías: máximo (`cantidad_total`), reservado, comprometido y disponible."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Es la ONG registrada\", () => pm.expect(pm.response.json().cuit).to.eql(pm.collectionVariables.get(\"cuit_nuevo\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.7 La ONG actualiza sus categorías",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_ong}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/yo/categorias",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "yo",
+                "categorias"
+              ]
+            },
+            "description": "**PUT /api/v1/ongs/yo/categorias** (token de ONG)\n\nReemplaza las categorías y sus topes: baja los paramédicos a 6, quita el agua y suma carpas. No se puede bajar un tope por debajo de lo reservado o comprometido (**409 CATEGORIA_EN_USO**).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categorias\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad_maxima\": 6\n    },\n    {\n      \"tipo_recurso\": \"CARPA\",\n      \"cantidad_maxima\": 40\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const codigos = pm.response.json().categorias.map(c => c.tipo_recurso.codigo).sort();",
+                  "pm.test(\"Quedan paramédicos y carpas\", () => pm.expect(codigos).to.eql([\"CARPA\", \"PARAMEDICO\"]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Cuenta de servicio y roles",
+      "item": [
+        {
+          "name": "2.1 Login de la webapp (cuenta de servicio)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Las cuentas de servicio son `webapp`, `bonita` y `auditor`. Sus contraseñas salen de las variables de entorno del servicio. Se guarda el token en `token_webapp`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"webapp\",\n  \"password\": \"{{password_webapp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const token = pm.response.json();",
+                  "pm.test(\"Rol SISTEMA_WEBAPP\", () => pm.expect(token.rol).to.eql(\"SISTEMA_WEBAPP\"));",
+                  "pm.collectionVariables.set(\"token_webapp\", token.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Validar una oferta de la ONG recién registrada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/validaciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "validaciones"
+              ]
+            },
+            "description": "**POST /api/v1/validaciones** (I-3.3) con el token de la webapp. Las categorías del registro son lo que lee la validación: 6 paramédicos salen `TOTAL`, y las raciones salen `NO_INSCRIPTA` porque la ONG no se inscribió en esa categoría.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-POSTMAN\",\n  \"ofertas\": [\n    {\n      \"oferta_referencia\": \"OF-POSTMAN\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"L1\",\n          \"ong_cuit\": \"{{cuit_nuevo}}\",\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad_ofrecida\": \"6\",\n          \"cantidad_requerida\": \"6\"\n        },\n        {\n          \"lote_referencia\": \"L2\",\n          \"ong_cuit\": \"{{cuit_nuevo}}\",\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad_ofrecida\": \"100\",\n          \"cantidad_requerida\": \"100\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const [paramedicos, raciones] = pm.response.json().ofertas[0].items;",
+                  "pm.test(\"Paramédicos TOTAL\", () => pm.expect(paramedicos.nivel).to.eql(\"TOTAL\"));",
+                  "pm.test(\"Raciones NO_INSCRIPTA\", () => pm.expect(raciones.motivo).to.eql(\"NO_INSCRIPTA\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 El token de una ONG no reserva recursos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_ong}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "Los endpoints de bloqueo y compromiso (I-3.4) son para las cuentas de servicio: con el token de una ONG responden **403 PROHIBIDO**."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 Un token de servicio no tiene ONG",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/yo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "yo"
+              ]
+            },
+            "description": "`/ongs/yo` es solo para cuentas de ONG: con el token de la webapp responde **403**."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
