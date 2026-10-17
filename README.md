@@ -1,5 +1,7 @@
 # RescueSync — API del Sistema Nacional (I-3.2)
 
+**API publicada (Render):** https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1 · **Swagger:** https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1/docs
+
 Implementación del punto **Catálogo y Consulta** del Sistema Nacional de Gestión de Recursos y
 Riesgos. Está construida siguiendo la misma arquitectura del backend de RescueSync E2.
 
@@ -121,7 +123,8 @@ seed si la base está vacía, crea las cuentas de servicio y levanta gunicorn. E
 2. *New → Blueprint*, elegir este repositorio y la rama de `render.yaml`.
 3. Completar `CUENTA_WEBAPP_PASSWORD`, `CUENTA_BONITA_PASSWORD` y `CUENTA_AUDITOR_PASSWORD`.
    `JWT_SECRET_KEY` la genera Render.
-4. Cuando termina, el Swagger queda en `https://<servicio>.onrender.com/api/v1/docs`.
+4. Cuando termina, el Swagger queda en `https://<servicio>.onrender.com/api/v1/docs`. El despliegue
+   actual está en https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1/docs.
 
 Cada push a esa rama redespliega solo. Para desplegar desde `main`, se cambia la rama en
 *Settings* del servicio; la URL no cambia.
