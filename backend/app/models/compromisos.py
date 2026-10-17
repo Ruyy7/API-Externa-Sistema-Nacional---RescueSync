@@ -6,6 +6,7 @@ qué oferta reservó o comprometió cada cantidad, y en qué estado está.
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
@@ -26,6 +27,10 @@ from app.models.comun import ConCicloDeVida, ConMarcasDeTiempo, IdGrande, ahora,
 from app.models.enums import EstadoCompromiso
 from app.models.organizaciones import ONG
 from app.models.recursos import InventarioRecurso
+
+# Solo para el type hint de CompromisoItem.actividades: liberaciones.py importa este módulo
+if TYPE_CHECKING:
+    from app.models.liberaciones import Actividad
 
 
 class Convocatoria(ConMarcasDeTiempo, db.Model):
@@ -152,9 +157,14 @@ class Compromiso(ConMarcasDeTiempo, ConCicloDeVida, db.Model):
     def cantidades_comprometidas(self) -> dict[str, Decimal]:
         return {item.tipo_recurso.codigo: item.cantidad_comprometida for item in self.items}
 
+    def todo_liberado(self) -> bool:
+        """No queda nada comprometido por liberar (I-3.5). Un ítem adjudicado en 0 cuenta como
+        liberado: nunca tuvo recursos en ejecución."""
+        return all(item.cantidad_pendiente == 0 for item in self.items)
+
 
 class CompromisoItem(ConMarcasDeTiempo, db.Model):
-    """Cantidades reservadas y comprometidas para un recurso concreto.
+    """Cantidades reservadas, comprometidas y liberadas para un recurso concreto.
 
     Los ítems quedan como historial: al cancelar o vencer no se ponen en cero, porque el estado vive
     en el compromiso. La columna ong_id está repetida a propósito: con las dos FK compuestas, la
@@ -185,6 +195,12 @@ class CompromisoItem(ConMarcasDeTiempo, db.Model):
             "cantidad_comprometida <= cantidad_reservada",
             name="comprometida_no_supera_reservada",
         ),
+        # I-3.5: la base impide liberar más de lo comprometido aunque el código fallara
+        CheckConstraint("cantidad_liberada >= 0", name="cantidad_liberada_no_negativa"),
+        CheckConstraint(
+            "cantidad_liberada <= cantidad_comprometida",
+            name="liberada_no_supera_comprometida",
+        ),
     )
 
     id: Mapped[IdGrande]
@@ -197,6 +213,10 @@ class CompromisoItem(ConMarcasDeTiempo, db.Model):
     cantidad_comprometida: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), default=Decimal("0"), server_default="0"
     )
+    # Acumulado de las actividades cumplidas (I-3.5). Lo pendiente es comprometida - liberada.
+    cantidad_liberada: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), default=Decimal("0"), server_default="0"
+    )
 
     compromiso: Mapped[Compromiso] = relationship(
         back_populates="items",
@@ -207,7 +227,16 @@ class CompromisoItem(ConMarcasDeTiempo, db.Model):
         primaryjoin="CompromisoItem.inventario_recurso_id == InventarioRecurso.id",
         foreign_keys="CompromisoItem.inventario_recurso_id",
     )
+    # Historial de liberaciones del ítem (I-3.5): la suma de sus cantidades es cantidad_liberada
+    actividades: Mapped[list[Actividad]] = relationship(
+        back_populates="item", order_by="Actividad.id"
+    )
 
     @property
     def tipo_recurso(self) -> TipoRecurso:
         return self.inventario_recurso.tipo_recurso
+
+    @property
+    def cantidad_pendiente(self) -> Decimal:
+        """Lo comprometido que todavía está en ejecución (I-3.5)."""
+        return self.cantidad_comprometida - self.cantidad_liberada

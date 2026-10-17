@@ -15,12 +15,16 @@ _DESCRIPCIONES = {
 }
 
 
-def documentar_errores(bp: Blueprint, *codigos: int):
+def documentar_errores(bp: Blueprint, *codigos: int, descripciones: dict[int, str] | None = None):
+    """Documenta los errores con su descripción general; `descripciones` la reemplaza por código
+    para un blueprint con sus propios casos (por ejemplo, la liberación de I-3.5)."""
+    textos = {**_DESCRIPCIONES, **(descripciones or {})}
+
     def decorar(vista):
         for codigo in codigos:
-            vista = bp.alt_response(
-                codigo, schema=ErrorUniformeSchema, description=_DESCRIPCIONES[codigo]
-            )(vista)
+            vista = bp.alt_response(codigo, schema=ErrorUniformeSchema, description=textos[codigo])(
+                vista
+            )
         return vista
 
     return decorar

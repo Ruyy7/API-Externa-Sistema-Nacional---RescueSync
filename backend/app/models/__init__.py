@@ -4,19 +4,25 @@ from app.models.catalogos import Certificacion, ONGCertificacion, TipoRecurso, U
 from app.models.compromisos import Compromiso, CompromisoItem, Convocatoria
 from app.models.cuentas import Cuenta
 from app.models.enums import (
+    AccionLiberacion,
     CategoriaRecurso,
     EstadoCompromiso,
     EstadoONG,
     MotivoNivel,
     NivelCompetencia,
+    OrigenActividad,
     RolSugerido,
 )
+from app.models.liberaciones import Actividad, CierreProyecto
 from app.models.organizaciones import ONG
 from app.models.recursos import InventarioRecurso
 
 __all__ = [
+    "AccionLiberacion",
+    "Actividad",
     "CategoriaRecurso",
     "Certificacion",
+    "CierreProyecto",
     "Compromiso",
     "CompromisoItem",
     "Convocatoria",
@@ -28,6 +34,7 @@ __all__ = [
     "NivelCompetencia",
     "ONG",
     "ONGCertificacion",
+    "OrigenActividad",
     "RolSugerido",
     "TipoRecurso",
     "UnidadMedida",
