@@ -7,6 +7,7 @@ from app.controllers import (
     certificaciones,
     compromisos,
     convocatorias,
+    liberaciones,
     ongs,
     recursos,
     validaciones,
@@ -14,5 +15,14 @@ from app.controllers import (
 
 
 def registrar_blueprints(api: Api) -> None:
-    for modulo in (auth, ongs, certificaciones, recursos, validaciones, compromisos, convocatorias):
+    for modulo in (
+        auth,
+        ongs,
+        certificaciones,
+        recursos,
+        validaciones,
+        compromisos,
+        convocatorias,
+        liberaciones,
+    ):
         api.register_blueprint(modulo.bp)

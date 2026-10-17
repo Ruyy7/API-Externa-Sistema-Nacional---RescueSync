@@ -1,6 +1,7 @@
 """Certificaciones y catálogo compartido de tipos de recurso."""
 
 from datetime import date
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Date, ForeignKey, SmallInteger, String, Text, false, true
@@ -52,6 +53,11 @@ class UnidadMedida(db.Model):
     codigo: Mapped[str] = mapped_column(String(40), unique=True)
     nombre: Mapped[str] = mapped_column(String(80))
     admite_decimales: Mapped[bool] = mapped_column(default=False, server_default=false())
+
+    def admite(self, cantidad: Decimal) -> bool:
+        """Una unidad que no admite decimales (personas, raciones, kits) solo acepta enteros.
+        Es la misma regla que `unidad_medida.admite()` en la webapp."""
+        return self.admite_decimales or cantidad == cantidad.to_integral_value()
 
 
 class TipoRecurso(db.Model):

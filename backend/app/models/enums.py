@@ -50,3 +50,18 @@ class RolSugerido(StrEnum):
 
     PRINCIPAL = "PRINCIPAL"
     APOYO = "APOYO"
+
+
+class OrigenActividad(StrEnum):
+    """Quién originó la liberación de una parte de un ítem comprometido (I-3.5)."""
+
+    INFORMADA = "INFORMADA"  # la ONG informó una actividad cumplida
+    CIERRE = "CIERRE"  # se liberó lo que quedaba al liberar los recursos de la emergencia
+
+
+class AccionLiberacion(StrEnum):
+    """Efecto de una liberación en el inventario (I-3.5). Se guarda en el historial porque
+    `tipo_recurso.reutilizable` puede cambiar después y el historial no tiene que cambiar."""
+
+    LIBERADO = "LIBERADO"  # reutilizable: vuelve al stock (comprometida -= n)
+    CONSUMIDO = "CONSUMIDO"  # consumible: sale del stock (comprometida -= n y total -= n)

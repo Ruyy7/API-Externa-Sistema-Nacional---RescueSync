@@ -128,6 +128,11 @@ class ItemCompromisoSchema(Schema):
     tipo_recurso = fields.Nested(TipoRecursoRefSchema)
     cantidad_reservada = fields.Decimal(as_string=True)
     cantidad_comprometida = fields.Decimal(as_string=True)
+    # Avance de la liberación (I-3.5)
+    cantidad_liberada = fields.Decimal(as_string=True)
+    cantidad_pendiente = fields.Decimal(
+        as_string=True, metadata={"description": "Comprometido que sigue en ejecución."}
+    )
 
 
 class CompromisoSchema(Schema):

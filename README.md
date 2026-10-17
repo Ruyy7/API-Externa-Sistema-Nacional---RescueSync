@@ -22,9 +22,10 @@ Riesgos. Está construida siguiendo la misma arquitectura del backend de RescueS
 - Tests con pytest.
 - Docker Compose.
 - Login con JWT y registro directo de ONGs con sus categorías y topes (I-3.1).
+- Liberación y cierre (I-3.5): las actividades cumplidas liberan lo comprometido a medida que la
+  ONG las informa (lo reutilizable vuelve al stock, lo consumible se da de baja), y por emergencia
+  se libera lo que quede y se cierra el proyecto.
 - Despliegue en Render con `render.yaml`.
-
-No implementa todavía la liberación (I-3.5).
 
 ## Levantar
 
@@ -111,6 +112,23 @@ El flujo, las restricciones, el locking y las alternativas descartadas están en
 `docs/04-bloqueo-y-compromiso.md`. Los casos de prueba en Postman, listos para correr contra
 Render, están en `docs/postman/casos-de-prueba-i-3.4.md`.
 
+## Liberación y cierre (I-3.5)
+
+```text
+POST /api/v1/actividades                           la ONG cumplió una actividad: libera esa cantidad (webapp o Bonita)
+GET  /api/v1/actividades y /api/v1/actividades/{id} historial de actividades y liberaciones
+GET  /api/v1/emergencias/{ref}/liberacion          qué queda por liberar; todo_liberado para Bonita
+POST /api/v1/emergencias/{ref}/liberacion          libera lo que quede en la emergencia (Liberar recursos)
+POST /api/v1/emergencias/{ref}/cierre              cierra el proyecto si no queda nada comprometido (Cerrar proyecto)
+```
+
+Se libera a medida que termina cada actividad: con el compromiso y la fila de inventario
+bloqueados, lo reutilizable vuelve a estar disponible y lo consumible sale del stock, y el
+compromiso pasa a `FINALIZADO` cuando no le queda nada pendiente. Repetir un pedido no libera dos
+veces. Decisiones, contrato, errores y las carreras cubiertas están en
+`docs/07-liberacion-y-cierre.md`; los casos de prueba en Postman, en
+`docs/postman/casos-de-prueba-i-3.5.md`.
+
 ## Despliegue en Render
 
 `render.yaml` describe el servicio web (desde `backend/Dockerfile`) y su base PostgreSQL, ambos en
@@ -185,5 +203,6 @@ El login y el registro de ONGs (I-3.1) están en `docs/06-login-y-registro.md`, 
 despliegue en `docs/05-plan-login-registro-despliegue.md`.
 
 Ver `docs/01-catalogo-y-consulta.md` para las decisiones del punto I-3.2,
-`docs/02-reservas-y-compromisos.md` para la preparación del modelo de I-3.4 y
-`docs/04-bloqueo-y-compromiso.md` para su implementación.
+`docs/02-reservas-y-compromisos.md` para la preparación del modelo de I-3.4,
+`docs/04-bloqueo-y-compromiso.md` para su implementación y `docs/07-liberacion-y-cierre.md`
+para la liberación y el cierre (I-3.5).

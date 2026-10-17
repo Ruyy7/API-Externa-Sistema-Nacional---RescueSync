@@ -8,12 +8,14 @@ from app.repositories.certificaciones import CertificacionRepository
 from app.repositories.compromisos import CompromisoRepository, ConvocatoriaRepository
 from app.repositories.cuentas import CategoriaRepository, CuentaRepository
 from app.repositories.inventario import InventarioRepository
+from app.repositories.liberaciones import LiberacionRepository
 from app.repositories.ongs import ONGRepository
 from app.repositories.recursos import RecursoRepository
 from app.services.auth import AuthService
 from app.services.certificaciones import CertificacionService
 from app.services.compromisos import CompromisoService
 from app.services.convocatorias import ConvocatoriaService
+from app.services.liberaciones import LiberacionService
 from app.services.onboarding import OnboardingService
 from app.services.ongs import ONGService
 from app.services.recursos import RecursoService
@@ -30,6 +32,7 @@ class Servicios:
     convocatorias: ConvocatoriaService
     auth: AuthService
     onboarding: OnboardingService
+    liberaciones: LiberacionService
 
 
 def crear_servicios(config) -> Servicios:
@@ -60,6 +63,13 @@ def crear_servicios(config) -> Servicios:
             cuentas_repo,
             CategoriaRepository(),
             InventarioRepository(),
+            lock_timeout_ms=lock_timeout_ms,
+        ),
+        liberaciones=LiberacionService(
+            LiberacionRepository(),
+            compromisos_repo,
+            InventarioRepository(),
+            ongs_repo,
             lock_timeout_ms=lock_timeout_ms,
         ),
     )
