@@ -1,6 +1,6 @@
 # I-3.1 y despliegue — Plan (login, registro de ONGs y Render)
 
-> **Estado:** plan del 17/10/2026, para aprobar antes de escribir código.
+> **Estado:** plan del 17/10/2026, aprobado el mismo día con las recomendaciones D1 a D5. Implementado; ver los ajustes al final y `06-login-y-registro.md`.
 > **Rama:** `feature/login-onboarding`, creada desde `feature/bloqueo-compromiso` (contiene I-3.2, I-3.3 e I-3.4).
 > **Tareas del plan de la E3** (`06-plan-entrega-3.md` de la webapp): S4 login (4 h-p), S5 registro de ONGs (5 h-p) y S3 despliegue en Render (5 h-p).
 
@@ -145,7 +145,14 @@ Los 63 tests que hoy pasan tienen que seguir pasando. Los 2 que ya fallaban sigu
 
 Va en línea con el plan. El riesgo está en Render: es el primer despliegue del equipo, y en la E2 el setup llevó tres veces lo estimado.
 
-## 8. Fuera de alcance
+## 8. Ajustes durante la implementación (17/10)
+
+- **`POST /validaciones` acepta el token de una ONG.** Usa `@jwt_required()` y sus tests emiten tokens sin rol, así que restringirlo por rol rompía tests de I-3.3. Como solo lee, se dejó igual y queda como sugerencia para su autor (sección 4.2 corregida en `06-login-y-registro.md`).
+- **Un solo código para las categorías en uso:** `CATEGORIA_EN_USO` (409) cubre tanto el tope por debajo de lo reservado como quitar una categoría ya usada, con el detalle por categoría. Una categoría que alguna reserva usó no se puede quitar aunque hoy esté en cero, porque `compromiso_item` la referencia; sí se puede bajar su tope.
+- **La columna `cuenta.rol` guarda el valor del rol** (`SISTEMA_WEBAPP`), no el nombre del miembro, con `values_callable`. `columna_enum` guarda el nombre, que en los otros enumerados coincide con el valor y en `RolSistema` no. Lo detectaron los tests.
+- **Arranque en un script** (`backend/arranque-produccion.sh`) en lugar de un comando largo en `render.yaml`, para no depender de cómo Render interpreta comillas y `$PORT`. Se probó localmente con gunicorn y el flujo completo por HTTP.
+
+## 9. Fuera de alcance
 
 - La liberación (I-3.5): no está hecha y no es de este punto.
 - Corregir las 2 fallas y el lint de la sección 1.

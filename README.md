@@ -19,9 +19,10 @@ Riesgos. Está construida siguiendo la misma arquitectura del backend de RescueS
 - Seed idempotente.
 - Tests con pytest.
 - Docker Compose.
+- Login con JWT y registro directo de ONGs con sus categorías y topes (I-3.1).
+- Despliegue en Render con `render.yaml`.
 
-No implementa todavía login/onboarding, niveles de competencia ni la liberación (I-3.5), porque
-corresponden a otros puntos de la Entrega 3.
+No implementa todavía la liberación (I-3.5).
 
 ## Levantar
 
@@ -48,7 +49,24 @@ GET /api/v1/certificaciones
 GET /api/v1/tipos-recursos
 GET /api/v1/recursos/disponibilidad
 POST /api/v1/validaciones          # I-3.3, requiere JWT
+POST /api/v1/login                 # I-3.1, devuelve el JWT
+POST /api/v1/ongs                  # I-3.1, registro directo de una ONG
+GET  /api/v1/ongs/yo               # I-3.1, token de ONG
+PUT  /api/v1/ongs/yo/categorias    # I-3.1, token de ONG
 ```
+
+## Login y registro de ONGs (I-3.1)
+
+Las cuentas de servicio (`webapp`, `bonita` y `auditor`) se crean con las contraseñas del `.env`
+(`CUENTA_*_PASSWORD`):
+
+```bash
+docker compose exec api flask cuentas-servicio
+```
+
+Después se pide el token con `POST /api/v1/login` (`{"usuario": "webapp", "password": "..."}`) y
+se pega en **Authorize** del Swagger. Las ONGs se registran con `POST /api/v1/ongs` y entran con su
+email. Contrato, decisiones y colección de Postman: `docs/06-login-y-registro.md`.
 
 Filtros útiles de disponibilidad:
 
@@ -73,8 +91,8 @@ POST /api/v1/convocatorias/{referencia}/reformulacion
 ```
 
 Estos endpoints exigen un token con el rol de la cuenta de servicio (`SISTEMA_WEBAPP`,
-`SISTEMA_BONITA` o `AUDITOR`). Hasta que exista el login (I-3.1), se puede emitir uno para probar
-desde Swagger (botón *Authorize*):
+`SISTEMA_BONITA` o `AUDITOR`), que se pide en `POST /api/v1/login`. Para desarrollo también se
+puede emitir uno directamente:
 
 ```bash
 docker compose exec api flask token-servicio SISTEMA_WEBAPP
@@ -89,6 +107,32 @@ docker compose exec api flask vencer-reservas
 
 El flujo, las restricciones, el locking y las alternativas descartadas están en
 `docs/04-bloqueo-y-compromiso.md`.
+
+## Despliegue en Render
+
+`render.yaml` describe el servicio web (desde `backend/Dockerfile`) y su base PostgreSQL, ambos en
+el plan gratuito. En cada arranque, `backend/arranque-produccion.sh` aplica las migraciones, carga el
+seed si la base está vacía, crea las cuentas de servicio y levanta gunicorn. El Dockerfile y el
+`docker compose` de desarrollo no cambian.
+
+**Crear el despliegue (una vez):**
+
+1. En https://render.com, entrar con la cuenta de GitHub que tiene acceso al repo.
+2. *New → Blueprint*, elegir este repositorio y la rama de `render.yaml`.
+3. Completar `CUENTA_WEBAPP_PASSWORD`, `CUENTA_BONITA_PASSWORD` y `CUENTA_AUDITOR_PASSWORD`.
+   `JWT_SECRET_KEY` la genera Render.
+4. Cuando termina, el Swagger queda en `https://<servicio>.onrender.com/api/v1/docs`.
+
+Cada push a esa rama redespliega solo. Para desplegar desde `main`, se cambia la rama en
+*Settings* del servicio; la URL no cambia.
+
+**Límites del plan gratuito:**
+
+- El servicio se "duerme" después de 15 minutos sin pedidos y el primero tarda cerca de un minuto.
+- **La base gratuita vence a los 30 días de creada** (y Render la borra 14 días después). Para el
+  coloquio, unos días antes se borra la base vencida y se crea otra gratuita con el mismo nombre
+  desde el panel; al redesplegar, el arranque vuelve a crear las tablas, el catálogo y las cuentas.
+  Pagar la base solo hace falta si hay que conservar datos cargados.
 
 ## Tests y calidad
 
@@ -132,6 +176,9 @@ En Docker, Compose continúa inyectando explícitamente `DATABASE_URL` con `db:5
 
 La validación por niveles de competencia (I-3.3), su contrato y cómo probarla con Postman están en
 `docs/03-validacion-por-competencia.md`.
+
+El login y el registro de ONGs (I-3.1) están en `docs/06-login-y-registro.md`, y su plan con el
+despliegue en `docs/05-plan-login-registro-despliegue.md`.
 
 Ver `docs/01-catalogo-y-consulta.md` para las decisiones del punto I-3.2,
 `docs/02-reservas-y-compromisos.md` para la preparación del modelo de I-3.4 y
