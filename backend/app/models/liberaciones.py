@@ -51,6 +51,17 @@ class Actividad(ConMarcasDeTiempo, db.Model):
 
     item: Mapped[CompromisoItem] = relationship(back_populates="actividades")
 
+    def coincide_con(self, datos: dict) -> bool:
+        """Mismo pedido que el registrado: repetirlo es un reintento; con otros datos, conflicto."""
+        compromiso = self.item.compromiso
+        return (
+            compromiso.convocatoria.emergencia_referencia == datos["emergencia_referencia"]
+            and compromiso.ong.cuit == datos["ong_cuit"]
+            and self.item.tipo_recurso.codigo == datos["tipo_recurso"]
+            and self.cantidad == datos["cantidad"]
+            and self.fecha_cumplimiento == datos["fecha"]
+        )
+
 
 class CierreProyecto(ConMarcasDeTiempo, db.Model):
     """Cierre del proyecto de una emergencia (tarea *Cerrar proyecto* del BPMN).
