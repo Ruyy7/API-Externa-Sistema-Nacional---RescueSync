@@ -1,13 +1,13 @@
 {
   "info": {
     "name": "RescueSync · Sistema Nacional · I-3.1 Login y registro de ONGs",
-    "description": "Casos de prueba del punto I-3.1: registro directo de ONGs con sus categorías y login con JWT.\n\n1. En la pestaña **Variables**, poner en `base_url` la URL de la API: la de Render (`https://<servicio>.onrender.com/api/v1`) o `http://localhost:5001/api/v1`.\n2. Para los casos con la cuenta de servicio, poner en `password_webapp` la contraseña de `CUENTA_WEBAPP_PASSWORD` (en Render: Environment del servicio).\n3. Ejecutar los pedidos en orden, o toda la colección con **Run collection**.\n\nCada corrida genera un CUIT válido y un email nuevos (`cuit_nuevo`, `email_nuevo`), así se puede repetir contra la misma base sin que el registro choque con uno anterior.\n\nSi la API está en el plan gratuito de Render, el primer pedido puede tardar cerca de un minuto: el servicio se \"duerme\" cuando no se usa.",
+    "description": "Casos de prueba del punto I-3.1: registro directo de ONGs con sus categorías y login con JWT.\n\n1. `base_url` ya apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. Para los casos con la cuenta de servicio, poner en `password_webapp` la contraseña de `CUENTA_WEBAPP_PASSWORD` (en Render: Environment del servicio).\n3. Ejecutar los pedidos en orden, o toda la colección con **Run collection**.\n\nCada corrida genera un CUIT válido y un email nuevos (`cuit_nuevo`, `email_nuevo`), así se puede repetir contra la misma base sin que el registro choque con uno anterior.\n\nSi la API está en el plan gratuito de Render, el primer pedido puede tardar cerca de un minuto: el servicio se \"duerme\" cuando no se usa.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:5001/api/v1"
+      "value": "https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1"
     },
     {
       "key": "password_ong",

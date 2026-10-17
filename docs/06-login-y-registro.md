@@ -88,6 +88,7 @@ El `GET` devuelve la ONG del token con sus categorías. El `PUT` recibe `{"categ
 
 ## Cómo probarlo
 
-- **Postman:** importar `docs/postman/RescueSync-I-3.1.postman_collection.json`, poner la URL en `base_url` y la contraseña de `webapp` en `password_webapp`, y correrla entera. Cada corrida usa un CUIT válido y un email nuevos, así se puede repetir sobre la misma base. Se verificó con Newman: 11 pedidos y 21 verificaciones sin fallas.
+- **API publicada:** https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1 (Swagger en https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1/docs).
+- **Postman:** importar `docs/postman/RescueSync-I-3.1.postman_collection.json`, que ya apunta a la API publicada (para probar en local, cambiar `base_url` a `http://localhost:5001/api/v1`), poner la contraseña de `webapp` en `password_webapp` y correrla entera. Cada corrida usa un CUIT válido y un email nuevos, así se puede repetir sobre la misma base. Se verificó con Newman, en local y contra la API publicada (17/10): 11 pedidos y 21 verificaciones sin fallas.
 - **Swagger:** `/api/v1/docs`. Para los endpoints protegidos, pedir el token en `POST /login` y pegarlo en **Authorize**.
 - **Tests:** `docker compose run --rm api pytest tests/test_registro_y_login.py`.
