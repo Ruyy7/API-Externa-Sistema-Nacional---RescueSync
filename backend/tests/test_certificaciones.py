@@ -1,4 +1,3 @@
-
 def test_catalogo_de_certificaciones(client):
     respuesta = client.get("/api/v1/certificaciones")
     assert respuesta.status_code == 200

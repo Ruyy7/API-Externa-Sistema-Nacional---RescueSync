@@ -6,8 +6,8 @@ services:
     runtime: docker
     plan: free
     region: virginia
-    # Mientras no se mergee a main; después se cambia desde el panel (la URL no cambia)
-    branch: feature/login-onboarding
+    # Si el servicio ya existe, la rama se cambia en Settings → Build & Deploy (la URL no cambia)
+    branch: main
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     dockerCommand: sh arranque-produccion.sh

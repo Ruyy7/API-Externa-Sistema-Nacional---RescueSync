@@ -1,4 +1,3 @@
-
 def test_lista_solo_habilitadas(client):
     respuesta = client.get("/api/v1/ongs?habilitada=true")
     assert respuesta.status_code == 200

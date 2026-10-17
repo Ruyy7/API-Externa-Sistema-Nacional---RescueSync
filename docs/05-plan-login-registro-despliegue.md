@@ -6,7 +6,7 @@
 
 ## 1. Punto de partida
 
-**Tests sobre `feature/bloqueo-compromiso`, sin cambios míos (17/10):** 63 pasan y **2 fallan**. Ruff marca 6 errores y 5 archivos sin formato. Nada de eso es de este punto, así que no lo toco; queda anotado para el equipo:
+**Tests sobre `feature/bloqueo-compromiso`, sin cambios míos (17/10):** 63 pasan y **2 fallan**. Ruff marca 6 errores y 5 archivos sin formato. **Corregido el 17/10, antes de mergear a `main`, a pedido del equipo:** la ruta pasó a `/api/v1/tipos-recursos`, el título a "RescueSync - Sistema Nacional…", los type hints importan sus nombres con `TYPE_CHECKING`, se formatearon los archivos y el schema de ítem de la validación pasó a llamarse `ItemValidacion` (chocaba con el `ItemPedido` de compromisos en el Swagger). Quedan 90 tests en verde y ruff sin errores.
 
 | Falla | Causa | Impacto |
 |---|---|---|

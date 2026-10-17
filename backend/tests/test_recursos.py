@@ -16,9 +16,7 @@ def test_disponibilidad_global_excluye_ong_pendiente(client):
 
 
 def test_disponibilidad_puede_incluir_no_habilitadas(client):
-    respuesta = client.get(
-        "/api/v1/recursos/disponibilidad?solo_ongs_habilitadas=false"
-    )
+    respuesta = client.get("/api/v1/recursos/disponibilidad?solo_ongs_habilitadas=false")
     assert respuesta.status_code == 200
     paramedicos = _por_codigo(respuesta.json, "PARAMEDICO")
     assert Decimal(paramedicos["cantidad_total"]) == Decimal("112.00")

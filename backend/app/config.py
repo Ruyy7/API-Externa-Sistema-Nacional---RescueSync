@@ -57,7 +57,7 @@ class Config:
         "auditor": ("AUDITOR", os.environ.get("CUENTA_AUDITOR_PASSWORD")),
     }
 
-    API_TITLE = "Sistema Nacional de Gestión de Recursos y Riesgos"
+    API_TITLE = "RescueSync - Sistema Nacional de Gestión de Recursos y Riesgos"
     API_VERSION = "v1"
     OPENAPI_VERSION = "3.0.3"
     OPENAPI_URL_PREFIX = "/api/v1"
