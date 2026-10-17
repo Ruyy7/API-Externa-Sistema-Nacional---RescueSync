@@ -24,6 +24,13 @@ class ErrorDeDominio(Exception):
             self.codigo = codigo
 
 
+class NoAutenticado(ErrorDeDominio):
+    """Credenciales inválidas en el login (I-3.1)."""
+
+    http_status = HTTPStatus.UNAUTHORIZED
+    codigo = "NO_AUTENTICADO"
+
+
 class NoEncontrado(ErrorDeDominio):
     http_status = HTTPStatus.NOT_FOUND
     codigo = "NO_ENCONTRADO"

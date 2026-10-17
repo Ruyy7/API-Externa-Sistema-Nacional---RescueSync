@@ -46,7 +46,7 @@ def datos_limpios(app):
         db.session.remove()
         db.session.execute(
             text(
-                "TRUNCATE compromiso_item, compromiso, convocatoria, inventario_recurso, "
+                "TRUNCATE cuenta, compromiso_item, compromiso, convocatoria, inventario_recurso, "
                 "ong_certificacion, tipo_recurso, unidad_medida, certificacion, ong "
                 "RESTART IDENTITY CASCADE"
             )

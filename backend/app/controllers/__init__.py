@@ -3,6 +3,7 @@
 from flask_smorest import Api
 
 from app.controllers import (
+    auth,
     certificaciones,
     compromisos,
     convocatorias,
@@ -13,5 +14,5 @@ from app.controllers import (
 
 
 def registrar_blueprints(api: Api) -> None:
-    for modulo in (ongs, certificaciones, recursos, validaciones, compromisos, convocatorias):
+    for modulo in (auth, ongs, certificaciones, recursos, validaciones, compromisos, convocatorias):
         api.register_blueprint(modulo.bp)

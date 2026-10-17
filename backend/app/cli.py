@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 import click
-from flask import Flask
+from flask import Flask, current_app
 from sqlalchemy import select
 
 from app.extensions import db
@@ -12,13 +12,14 @@ from app.models import (
     ONG,
     CategoriaRecurso,
     Certificacion,
+    Cuenta,
     EstadoONG,
     InventarioRecurso,
     ONGCertificacion,
     TipoRecurso,
     UnidadMedida,
 )
-from app.security import RolSistema, emitir_token
+from app.security import ROLES_DE_SERVICIO, RolSistema, emitir_token
 from app.services import servicios
 
 # Los códigos de unidad y tipo de recurso son los mismos que usa RescueSync E2.
@@ -171,10 +172,36 @@ def cargar_datos_demo() -> None:
 
 def registrar_comandos(app: Flask) -> None:
     @app.cli.command("seed")
-    def seed() -> None:
+    @click.option(
+        "--si-vacia",
+        is_flag=True,
+        help="Solo si la base no tiene catálogo (para el arranque en Render, que se reinicia).",
+    )
+    def seed(si_vacia: bool) -> None:
         """Carga ONGs, certificaciones, tipos de recurso e inventario de demostración."""
+        if si_vacia and db.session.scalar(select(TipoRecurso.id).limit(1)) is not None:
+            click.echo("La base ya tiene datos: no se carga el seed.")
+            return
         cargar_datos_demo()
         click.echo("Datos de demostración del Sistema Nacional cargados.")
+
+    @app.cli.command("cuentas-servicio")
+    def cuentas_servicio() -> None:
+        """Crea o actualiza las cuentas de servicio con las contraseñas del entorno (I-3.1).
+
+        Las contraseñas vienen de CUENTA_WEBAPP_PASSWORD, CUENTA_BONITA_PASSWORD y
+        CUENTA_AUDITOR_PASSWORD. Una cuenta sin contraseña configurada no se toca.
+        """
+        for usuario, (rol, password) in current_app.config["CUENTAS_DE_SERVICIO"].items():
+            if not password:
+                click.echo(f"{usuario}: sin contraseña configurada, se omite.")
+                continue
+            cuenta = _obtener_o_crear(Cuenta, {"rol": RolSistema(rol)}, usuario=usuario)
+            cuenta.rol = RolSistema(rol)
+            cuenta.activa = True
+            cuenta.definir_password(password)
+            click.echo(f"{usuario}: lista ({rol}).")
+        db.session.commit()
 
     @app.cli.command("vencer-reservas")
     def vencer_reservas() -> None:
@@ -187,11 +214,11 @@ def registrar_comandos(app: Flask) -> None:
         click.echo(f"Reservas vencidas: {cantidad}.")
 
     @app.cli.command("token-servicio")
-    @click.argument("rol", type=click.Choice([rol.value for rol in RolSistema]))
+    @click.argument("rol", type=click.Choice([rol.value for rol in ROLES_DE_SERVICIO]))
     @click.option("--horas", default=8, show_default=True, help="Validez del token.")
     def token_servicio(rol: str, horas: int) -> None:
         """Emite un token de cuenta de servicio para probar los endpoints protegidos.
 
-        Es temporal: lo reemplaza el /login del punto I-3.1.
+        Sirve para desarrollo; en un entorno real los tokens se piden a POST /login (I-3.1).
         """
         click.echo(emitir_token(rol.lower(), RolSistema(rol), horas))
