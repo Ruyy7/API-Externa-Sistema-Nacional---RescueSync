@@ -1,0 +1,4008 @@
+{
+  "info": {
+    "name": "RescueSync · Sistema Nacional · I-3.4 Bloqueo y compromiso",
+    "description": "Casos de prueba del punto I-3.4 (control de concurrencia y bloqueo).\n\n1. Levantar la API y dejar los datos de demostración limpios (ver docs/postman/casos-de-prueba-i-3.4.md).\n2. Generar los tokens: `docker compose exec api flask token-servicio SISTEMA_WEBAPP` (y SISTEMA_BONITA y AUDITOR).\n3. Pegarlos en la pestaña **Variables** de esta colección: `token_webapp`, `token_bonita` y `token_auditor`.\n4. Ejecutar los pedidos en orden (cada uno depende del anterior), o toda la colección con **Run collection**.\n\nLas fechas (`cierre_futuro`, `limite_futuro`, `cierre_pasado` y `limite_pasado`) se calculan solas antes de cada pedido.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5001/api/v1"
+    },
+    {
+      "key": "token_webapp",
+      "value": ""
+    },
+    {
+      "key": "token_bonita",
+      "value": ""
+    },
+    {
+      "key": "token_auditor",
+      "value": ""
+    },
+    {
+      "key": "cierre_futuro",
+      "value": ""
+    },
+    {
+      "key": "limite_futuro",
+      "value": ""
+    },
+    {
+      "key": "cierre_pasado",
+      "value": ""
+    },
+    {
+      "key": "limite_pasado",
+      "value": ""
+    },
+    {
+      "key": "ong_rio_id",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Fechas relativas a hoy, para que la colección sirva cualquier día",
+          "const dia = 24 * 60 * 60 * 1000;",
+          "const ahora = Date.now();",
+          "pm.collectionVariables.set(\"cierre_futuro\", new Date(ahora + 7 * dia).toISOString());",
+          "pm.collectionVariables.set(\"limite_futuro\", new Date(ahora + 14 * dia).toISOString());",
+          "pm.collectionVariables.set(\"cierre_pasado\", new Date(ahora - 15 * dia).toISOString());",
+          "pm.collectionVariables.set(\"limite_pasado\", new Date(ahora - 14 * dia).toISOString());"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Preparación",
+      "item": [
+        {
+          "name": "0.1 Obtener el id de Rescatistas del Río",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs?habilitada=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs"
+              ],
+              "query": [
+                {
+                  "key": "habilitada",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/ongs**\n\nLista las ONGs registradas (punto I-3.2). Con `habilitada=true` devuelve solo las habilitadas. Lo usamos para obtener el id de Rescatistas del Río.\n\nGuarda en la variable `ong_rio_id` el id de la ONG con CUIT 30-11111111-1."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set(\"ong_rio_id\", json.find(o => o.cuit === \"30-11111111-1\").id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.2 Inventario inicial de Rescatistas del Río",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_rio_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_rio_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{ong_id}/recursos**\n\nInventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.\n\nPunto de partida: 10 paramédicos, 15 rescatistas y 250 frazadas disponibles. No está inscripta en RACION_ALIMENTO."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueada 2.00, comprometida 0.00, disponible 10.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"2.00\", \"0.00\", \"10.00\"]);",
+                  "});",
+                  "pm.test(\"RESCATISTA: bloqueada 3.00, comprometida 2.00, disponible 15.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RESCATISTA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"3.00\", \"2.00\", \"15.00\"]);",
+                  "});",
+                  "pm.test(\"FRAZADA: bloqueada 20.00, comprometida 30.00, disponible 250.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"FRAZADA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"20.00\", \"30.00\", \"250.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Validar restricciones sin bloquear",
+      "item": [
+        {
+          "name": "1.1 Verificar un pedido con resultados distintos por ítem",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/verificacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "verificacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/verificacion**\n\nValida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).\n\nRespuesta no binaria: un ítem alcanza, otro alcanza en parte y otro no tiene disponibilidad. No bloquea nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ong_cuit\": \"30-11111111-1\",\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 8\n    },\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 20\n    },\n    {\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad\": 10\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"se_puede_reservar = false\", function () {",
+                  "    pm.expect(json[\"se_puede_reservar\"]).to.eql(false);",
+                  "});",
+                  "pm.test(\"items.0.resultado = \\\"DISPONIBLE\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"resultado\"]).to.eql(\"DISPONIBLE\");",
+                  "});",
+                  "pm.test(\"items.1.resultado = \\\"PARCIAL\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][1][\"resultado\"]).to.eql(\"PARCIAL\");",
+                  "});",
+                  "pm.test(\"items.1.disponible = \\\"15.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][1][\"disponible\"]).to.eql(\"15.00\");",
+                  "});",
+                  "pm.test(\"items.2.resultado = \\\"SIN_DISPONIBILIDAD\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][2][\"resultado\"]).to.eql(\"SIN_DISPONIBILIDAD\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Verificar con una ONG pendiente de habilitación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/verificacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "verificacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/verificacion**\n\nValida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).\n\nLa verificación informa que la ONG no está habilitada (no es un error).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ong_cuit\": \"30-33333333-3\",\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"ong_habilitada = false\", function () {",
+                  "    pm.expect(json[\"ong_habilitada\"]).to.eql(false);",
+                  "});",
+                  "pm.test(\"se_puede_reservar = false\", function () {",
+                  "    pm.expect(json[\"se_puede_reservar\"]).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Verificar con un CUIT que no está registrado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/verificacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "verificacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/verificacion**\n\nValida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ong_cuit\": \"30-99999999-9\",\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"ONG_INEXISTENTE\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"ONG_INEXISTENTE\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 Verificar una categoría que no existe en el catálogo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/verificacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "verificacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/verificacion**\n\nValida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ong_cuit\": \"30-11111111-1\",\n  \"items\": [\n    {\n      \"tipo_recurso\": \"DRON\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 El inventario no cambió",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_rio_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_rio_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{ong_id}/recursos**\n\nInventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.\n\nLa verificación no bloquea: el inventario sigue igual."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueada 2.00, comprometida 0.00, disponible 10.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"2.00\", \"0.00\", \"10.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Bloqueo al ofertar (reserva)",
+      "item": [
+        {
+          "name": "2.1 La ONG presenta la oferta 101: reservar 8 paramédicos y 4 rescatistas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nSe bloquean los recursos. Guarda el id en `compromiso_101`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"101\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-1\",\n    \"emergencia_referencia\": \"emg-1\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 8\n    },\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 4\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 CREATED\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.test(\"ong.cuit = \\\"30-11111111-1\\\"\", function () {",
+                  "    pm.expect(json[\"ong\"][\"cuit\"]).to.eql(\"30-11111111-1\");",
+                  "});",
+                  "pm.test(\"convocatoria.emergencia_referencia = \\\"emg-1\\\"\", function () {",
+                  "    pm.expect(json[\"convocatoria\"][\"emergencia_referencia\"]).to.eql(\"emg-1\");",
+                  "});",
+                  "pm.test(\"items.0.cantidad_reservada = \\\"8.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"cantidad_reservada\"]).to.eql(\"8.00\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_101\", json[\"id\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Inventario después de reservar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_rio_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_rio_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{ong_id}/recursos**\n\nInventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.\n\nLos paramédicos bloqueados pasan de 2 a 10: quedan 2 disponibles."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueada 10.00, comprometida 0.00, disponible 2.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"10.00\", \"0.00\", \"2.00\"]);",
+                  "});",
+                  "pm.test(\"RESCATISTA: bloqueada 7.00, comprometida 2.00, disponible 11.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RESCATISTA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"7.00\", \"2.00\", \"11.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 Reintento: la misma oferta con el mismo pedido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nIdempotencia: responde 200 (no 201) con el mismo compromiso y no reserva dos veces.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"101\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-1\",\n    \"emergencia_referencia\": \"emg-1\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 8\n    },\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 4\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_101_reintento\", json[\"id\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 La misma oferta con otro pedido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nPara cambiar una reserva se usa el PUT del paso 3.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"101\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-1\",\n    \"emergencia_referencia\": \"emg-1\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 9\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"COMPROMISO_EXISTENTE\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"COMPROMISO_EXISTENTE\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.5 La misma ONG ofrece los mismos paramédicos en otra emergencia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nEl caso central del punto 4: quedan 2 paramédicos libres y se piden 5. No se reserva nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"202\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-2\",\n    \"emergencia_referencia\": \"emg-2\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"RECURSOS_INSUFICIENTES\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"RECURSOS_INSUFICIENTES\");",
+                  "});",
+                  "pm.test(\"detalles.items.0.solicitado = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"items\"][0][\"solicitado\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"detalles.items.0.disponible = \\\"2.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"items\"][0][\"disponible\"]).to.eql(\"2.00\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.6 Una ONG pendiente de habilitación no puede reservar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"301\",\n  \"ong_cuit\": \"30-33333333-3\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-9\",\n    \"emergencia_referencia\": \"emg-9\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"ONG_NO_HABILITADA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"ONG_NO_HABILITADA\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.7 Un CUIT que no está registrado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"302\",\n  \"ong_cuit\": \"30-99999999-9\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-9\",\n    \"emergencia_referencia\": \"emg-9\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"ONG_INEXISTENTE\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"ONG_INEXISTENTE\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.8 Medio paramédico",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nLas personas no se fraccionan: la unidad PERSONA no admite decimales.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"303\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-9\",\n    \"emergencia_referencia\": \"emg-9\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1.5\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.9 Una convocatoria con la ventana de ofertas ya cerrada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"304\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-8\",\n    \"emergencia_referencia\": \"emg-8\",\n    \"fecha_cierre\": \"{{cierre_pasado}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VENTANA_CERRADA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VENTANA_CERRADA\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.10 Una categoría en la que la ONG no está inscripta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nLa ONG no tiene raciones registradas: su disponible es 0.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"305\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-9\",\n    \"emergencia_referencia\": \"emg-9\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"RECURSOS_INSUFICIENTES\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"RECURSOS_INSUFICIENTES\");",
+                  "});",
+                  "pm.test(\"detalles.items.0.disponible = \\\"0\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"items\"][0][\"disponible\"]).to.eql(\"0\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.11 Falta un campo obligatorio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"306\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.12 La fecha límite de adjudicación es anterior al cierre",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"307\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-9\",\n    \"emergencia_referencia\": \"emg-9\",\n    \"fecha_cierre\": \"{{limite_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{cierre_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. La ONG modifica o retira la oferta",
+      "item": [
+        {
+          "name": "3.1 La ONG modifica la oferta 101: 6 paramédicos y 50 frazadas",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}"
+              ]
+            },
+            "description": "**PUT /api/v1/compromisos/{id}**\n\nLa ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.\n\nBajan los paramédicos, se agregan frazadas y desaparecen los rescatistas.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 6\n    },\n    {\n      \"tipo_recurso\": \"FRAZADA\",\n      \"cantidad\": 50\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.test(\"items.0.tipo_recurso.codigo = \\\"PARAMEDICO\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"tipo_recurso\"][\"codigo\"]).to.eql(\"PARAMEDICO\");",
+                  "});",
+                  "pm.test(\"items.0.cantidad_reservada = \\\"6.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"cantidad_reservada\"]).to.eql(\"6.00\");",
+                  "});",
+                  "pm.test(\"items tiene 2 elementos\", function () {",
+                  "    pm.expect(json[\"items\"].length).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 Inventario después de modificar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_rio_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_rio_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{ong_id}/recursos**\n\nInventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.\n\nSe liberaron 2 paramédicos y los 4 rescatistas; se bloquearon 50 frazadas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueada 8.00, comprometida 0.00, disponible 4.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"8.00\", \"0.00\", \"4.00\"]);",
+                  "});",
+                  "pm.test(\"RESCATISTA: bloqueada 3.00, comprometida 2.00, disponible 15.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RESCATISTA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"3.00\", \"2.00\", \"15.00\"]);",
+                  "});",
+                  "pm.test(\"FRAZADA: bloqueada 70.00, comprometida 30.00, disponible 200.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"FRAZADA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"70.00\", \"30.00\", \"200.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 Modificar pidiendo más de lo disponible",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}"
+              ]
+            },
+            "description": "**PUT /api/v1/compromisos/{id}**\n\nLa ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.\n\nAumentar de 6 a 11 necesita 5 más y hay 4 libres. La reserva queda como estaba.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 11\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"RECURSOS_INSUFICIENTES\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"RECURSOS_INSUFICIENTES\");",
+                  "});",
+                  "pm.test(\"detalles.items.0.solicitado = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"items\"][0][\"solicitado\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"detalles.items.0.disponible = \\\"4.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"items\"][0][\"disponible\"]).to.eql(\"4.00\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.4 La oferta 202 de la otra emergencia ahora sí entra (4 paramédicos)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nGuarda el id en `compromiso_202`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"202\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-2\",\n    \"emergencia_referencia\": \"emg-2\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 4\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 CREATED\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_202\", json[\"id\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.5 La ONG retira la oferta 202",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_202}}/cancelacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_202}}",
+                "cancelacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/cancelacion**\n\nLa ONG retira la oferta: la reserva se cancela y los recursos vuelven a estar disponibles."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"CANCELADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"CANCELADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.6 Retirarla otra vez",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_202}}/cancelacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_202}}",
+                "cancelacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/cancelacion**\n\nLa ONG retira la oferta: la reserva se cancela y los recursos vuelven a estar disponibles.\n\nIdempotencia: un reintento responde 200 y no libera dos veces."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"CANCELADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"CANCELADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.7 Inventario después de retirar la oferta 202",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_rio_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_rio_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{ong_id}/recursos**\n\nInventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.\n\nLos 4 paramédicos de la oferta 202 volvieron a estar disponibles."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueada 8.00, comprometida 0.00, disponible 4.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"8.00\", \"0.00\", \"4.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.8 Modificar un compromiso que no existe",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "999999"
+              ]
+            },
+            "description": "**PUT /api/v1/compromisos/{id}**\n\nLa ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 404 NOT FOUND\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_ENCONTRADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_ENCONTRADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Adjudicación: compromiso de los recursos",
+      "item": [
+        {
+          "name": "4.1 Ofertas de la convocatoria conv-1 (lo que ve quien adjudica)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos?convocatoria=conv-1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ],
+              "query": [
+                {
+                  "key": "convocatoria",
+                  "value": "conv-1"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nLista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Devuelve los compromisos compromiso_101\", function () {",
+                  "    const esperados = [\"compromiso_101\"].map(v => Number(pm.collectionVariables.get(v)));",
+                  "    pm.expect(json.map(c => c.id)).to.eql(esperados);",
+                  "});",
+                  "pm.test(\"0.estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[0][\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 El auditor no puede adjudicar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"PROHIBIDO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 Adjudicar más de lo reservado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 7\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.4 Adjudicar una categoría que no está en la reserva",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.5 Adjudicar todo en cero",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).\n\nSi una oferta no se adjudica, su reserva vence sola al terminar la ventana.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 0\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.6 El municipio adjudica 5 de los 6 paramédicos (adjudicación parcial)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).\n\nLas frazadas no se nombran: se adjudican en 0 y se liberan.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});",
+                  "pm.test(\"items.0.cantidad_reservada = \\\"6.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"cantidad_reservada\"]).to.eql(\"6.00\");",
+                  "});",
+                  "pm.test(\"items.0.cantidad_comprometida = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"cantidad_comprometida\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"items.1.cantidad_comprometida = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][1][\"cantidad_comprometida\"]).to.eql(\"0.00\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.7 Inventario después de adjudicar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_rio_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_rio_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{ong_id}/recursos**\n\nInventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.\n\n5 paramédicos pasan de bloqueados a comprometidos y el sexto se libera. Las 50 frazadas no adjudicadas vuelven a estar disponibles."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueada 2.00, comprometida 5.00, disponible 5.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"2.00\", \"5.00\", \"5.00\"]);",
+                  "});",
+                  "pm.test(\"FRAZADA: bloqueada 20.00, comprometida 30.00, disponible 250.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"FRAZADA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"20.00\", \"30.00\", \"250.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.8 La webapp repite la misma adjudicación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).\n\nIdempotencia: la webapp o Bonita pueden reintentar sin comprometer dos veces.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.9 Adjudicar otra cantidad sobre lo ya adjudicado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 4\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"TRANSICION_INVALIDA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"TRANSICION_INVALIDA\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.10 La ONG intenta retirar una oferta ya adjudicada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}/cancelacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}",
+                "cancelacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/cancelacion**\n\nLa ONG retira la oferta: la reserva se cancela y los recursos vuelven a estar disponibles."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"TRANSICION_INVALIDA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"TRANSICION_INVALIDA\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.11 La ONG intenta modificar una oferta ya adjudicada",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}"
+              ]
+            },
+            "description": "**PUT /api/v1/compromisos/{id}**\n\nLa ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"COMPROMISO_NO_MODIFICABLE\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"COMPROMISO_NO_MODIFICABLE\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Ventana de adjudicación y vencimiento",
+      "item": [
+        {
+          "name": "5.1 Oferta 404: reservar 1 rescatista en conv-4",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"404\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-4\",\n    \"emergencia_referencia\": \"emg-4\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 CREATED\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_404\", json[\"id\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 Cierra la ventana de ofertas de conv-4 (la de adjudicación sigue abierta)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/convocatorias/conv-4",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "convocatorias",
+                "conv-4"
+              ]
+            },
+            "description": "**PUT /api/v1/convocatorias/{referencia}**\n\nReabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha_cierre\": \"{{cierre_pasado}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"referencia = \\\"conv-4\\\"\", function () {",
+                  "    pm.expect(json[\"referencia\"]).to.eql(\"conv-4\");",
+                  "});",
+                  "pm.test(\"emergencia_referencia = \\\"emg-4\\\"\", function () {",
+                  "    pm.expect(json[\"emergencia_referencia\"]).to.eql(\"emg-4\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 Ya no se puede modificar la oferta",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_404}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_404}}"
+              ]
+            },
+            "description": "**PUT /api/v1/compromisos/{id}**\n\nLa ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VENTANA_CERRADA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VENTANA_CERRADA\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.4 Pero sí se puede adjudicar: la reserva sigue bloqueada hasta el límite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_404}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_404}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.5 Oferta 303: reservar 2 rescatistas en conv-3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"303\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-3\",\n    \"emergencia_referencia\": \"emg-3\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 CREATED\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_303\", json[\"id\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.6 Termina también la ventana de adjudicación de conv-3",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/convocatorias/conv-3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "convocatorias",
+                "conv-3"
+              ]
+            },
+            "description": "**PUT /api/v1/convocatorias/{referencia}**\n\nReabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha_cierre\": \"{{cierre_pasado}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_pasado}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"referencia = \\\"conv-3\\\"\", function () {",
+                  "    pm.expect(json[\"referencia\"]).to.eql(\"conv-3\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.7 Adjudicar después del límite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_303}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_303}}",
+                "confirmacion"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).\n\nLa reserva vence en ese momento y sus recursos se liberan.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"RESERVA_VENCIDA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"RESERVA_VENCIDA\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.8 La oferta 303 quedó vencida",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_303}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_303}}"
+              ]
+            },
+            "description": "**GET /api/v1/compromisos/{id}**\n\nDetalle de una reserva o compromiso."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"VENCIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"VENCIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.9 Inventario después del vencimiento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_rio_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_rio_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{ong_id}/recursos**\n\nInventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.\n\nRescatistas: 1 comprometido por la oferta 404 (más los 2 del seed) y los 2 de la oferta 303 liberados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"RESCATISTA: bloqueada 3.00, comprometida 3.00, disponible 14.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RESCATISTA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"3.00\", \"3.00\", \"14.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.10 Fechas incoherentes al reabrir",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/convocatorias/conv-3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "convocatorias",
+                "conv-3"
+              ]
+            },
+            "description": "**PUT /api/v1/convocatorias/{referencia}**\n\nReabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha_cierre\": \"{{limite_futuro}}\",\n  \"fecha_limite_adjudicacion\": \"{{cierre_futuro}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.11 Consultar la convocatoria conv-4",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/convocatorias/conv-4",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "convocatorias",
+                "conv-4"
+              ]
+            },
+            "description": "**GET /api/v1/convocatorias/{referencia}**\n\nFechas de una convocatoria. La convocatoria se registra sola con la primera reserva que la nombra."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"referencia = \\\"conv-4\\\"\", function () {",
+                  "    pm.expect(json[\"referencia\"]).to.eql(\"conv-4\");",
+                  "});",
+                  "pm.test(\"emergencia_referencia = \\\"emg-4\\\"\", function () {",
+                  "    pm.expect(json[\"emergencia_referencia\"]).to.eql(\"emg-4\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.12 Una convocatoria que no existe",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/convocatorias/no-existe",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "convocatorias",
+                "no-existe"
+              ]
+            },
+            "description": "**GET /api/v1/convocatorias/{referencia}**\n\nFechas de una convocatoria. La convocatoria se registra sola con la primera reserva que la nombra."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 404 NOT FOUND\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_ENCONTRADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_ENCONTRADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Reformulación de la convocatoria",
+      "item": [
+        {
+          "name": "6.1 Oferta 505: reservar 10 frazadas en conv-5",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"505\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-5\",\n    \"emergencia_referencia\": \"emg-5\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"FRAZADA\",\n      \"cantidad\": 10\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 CREATED\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_505\", json[\"id\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 Reformular conv-5: sus reservas pasan a conv-5b",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/convocatorias/conv-5/reformulacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "convocatorias",
+                "conv-5",
+                "reformulacion"
+              ]
+            },
+            "description": "**POST /api/v1/convocatorias/{referencia}/reformulacion**\n\nReformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nueva\": {\n    \"referencia\": \"conv-5b\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"compromisos_movidos = 1\", function () {",
+                  "    pm.expect(json[\"compromisos_movidos\"]).to.eql(1);",
+                  "});",
+                  "pm.test(\"convocatoria.referencia = \\\"conv-5b\\\"\", function () {",
+                  "    pm.expect(json[\"convocatoria\"][\"referencia\"]).to.eql(\"conv-5b\");",
+                  "});",
+                  "pm.test(\"convocatoria.emergencia_referencia = \\\"emg-5\\\"\", function () {",
+                  "    pm.expect(json[\"convocatoria\"][\"emergencia_referencia\"]).to.eql(\"emg-5\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 La oferta 505 ahora pertenece a conv-5b",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_505}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_505}}"
+              ]
+            },
+            "description": "**GET /api/v1/compromisos/{id}**\n\nDetalle de una reserva o compromiso."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"convocatoria.referencia = \\\"conv-5b\\\"\", function () {",
+                  "    pm.expect(json[\"convocatoria\"][\"referencia\"]).to.eql(\"conv-5b\");",
+                  "});",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.4 Repetir la reformulación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/convocatorias/conv-5/reformulacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "convocatorias",
+                "conv-5",
+                "reformulacion"
+              ]
+            },
+            "description": "**POST /api/v1/convocatorias/{referencia}/reformulacion**\n\nReformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.\n\nIdempotencia: ya no queda nada por mover.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nueva\": {\n    \"referencia\": \"conv-5b\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"compromisos_movidos = 0\", function () {",
+                  "    pm.expect(json[\"compromisos_movidos\"]).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.5 Reformular hacia la misma convocatoria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/convocatorias/conv-5b/reformulacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "convocatorias",
+                "conv-5b",
+                "reformulacion"
+              ]
+            },
+            "description": "**POST /api/v1/convocatorias/{referencia}/reformulacion**\n\nReformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nueva\": {\n    \"referencia\": \"conv-5b\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Consultas",
+      "item": [
+        {
+          "name": "7.1 Compromisos de la emergencia emg-1",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos?emergencia=emg-1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ],
+              "query": [
+                {
+                  "key": "emergencia",
+                  "value": "emg-1"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nLista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Devuelve los compromisos compromiso_101\", function () {",
+                  "    const esperados = [\"compromiso_101\"].map(v => Number(pm.collectionVariables.get(v)));",
+                  "    pm.expect(json.map(c => c.id)).to.eql(esperados);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.2 Compromisos vencidos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos?estado=VENCIDO",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "VENCIDO"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nLista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Devuelve los compromisos compromiso_303\", function () {",
+                  "    const esperados = [\"compromiso_303\"].map(v => Number(pm.collectionVariables.get(v)));",
+                  "    pm.expect(json.map(c => c.id)).to.eql(esperados);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.3 Compromisos cancelados",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos?estado=CANCELADO",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "CANCELADO"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nLista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Devuelve los compromisos compromiso_202\", function () {",
+                  "    const esperados = [\"compromiso_202\"].map(v => Number(pm.collectionVariables.get(v)));",
+                  "    pm.expect(json.map(c => c.id)).to.eql(esperados);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.4 Compromisos de una oferta",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos?oferta_referencia=101",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ],
+              "query": [
+                {
+                  "key": "oferta_referencia",
+                  "value": "101"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nLista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Devuelve los compromisos compromiso_101\", function () {",
+                  "    const esperados = [\"compromiso_101\"].map(v => Number(pm.collectionVariables.get(v)));",
+                  "    pm.expect(json.map(c => c.id)).to.eql(esperados);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.5 Todos los compromisos de la ONG",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos?ong_cuit=30-11111111-1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ],
+              "query": [
+                {
+                  "key": "ong_cuit",
+                  "value": "30-11111111-1"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nLista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"Devuelve los compromisos compromiso_505, compromiso_303, compromiso_404, compromiso_202, compromiso_101\", function () {",
+                  "    const esperados = [\"compromiso_505\", \"compromiso_303\", \"compromiso_404\", \"compromiso_202\", \"compromiso_101\"].map(v => Number(pm.collectionVariables.get(v)));",
+                  "    pm.expect(json.map(c => c.id)).to.eql(esperados);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.6 Detalle con el token del auditor",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_101}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_101}}"
+              ]
+            },
+            "description": "**GET /api/v1/compromisos/{id}**\n\nDetalle de una reserva o compromiso."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.7 Un estado que no existe",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos?estado=NO_EXISTE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ],
+              "query": [
+                {
+                  "key": "estado",
+                  "value": "NO_EXISTE"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nLista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Seguridad",
+      "item": [
+        {
+          "name": "8.1 Reservar sin token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"801\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-8\",\n    \"emergencia_referencia\": \"emg-8\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401 UNAUTHORIZED\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_AUTENTICADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_AUTENTICADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.2 Reservar con un token inválido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "no-es-un-token",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"801\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-8\",\n    \"emergencia_referencia\": \"emg-8\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401 UNAUTHORIZED\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_AUTENTICADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_AUTENTICADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.3 Bonita no puede reservar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"801\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-8\",\n    \"emergencia_referencia\": \"emg-8\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"PROHIBIDO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.4 El auditor no puede reservar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"801\",\n  \"ong_cuit\": \"30-11111111-1\",\n  \"convocatoria\": {\n    \"referencia\": \"conv-8\",\n    \"emergencia_referencia\": \"emg-8\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"PROHIBIDO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.5 Consultar sin token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nLista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401 UNAUTHORIZED\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_AUTENTICADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_AUTENTICADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Estado final",
+      "item": [
+        {
+          "name": "9.1 Inventario final de Rescatistas del Río",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_rio_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_rio_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{ong_id}/recursos**\n\nInventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.\n\n5 paramédicos y 1 rescatista comprometidos; 10 frazadas reservadas (oferta 505). Nunca se reservó más de lo que había."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueada 2.00, comprometida 5.00, disponible 5.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"2.00\", \"5.00\", \"5.00\"]);",
+                  "});",
+                  "pm.test(\"RESCATISTA: bloqueada 3.00, comprometida 3.00, disponible 14.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RESCATISTA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"3.00\", \"3.00\", \"14.00\"]);",
+                  "});",
+                  "pm.test(\"FRAZADA: bloqueada 30.00, comprometida 30.00, disponible 240.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"FRAZADA\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"30.00\", \"30.00\", \"240.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
