@@ -1,0 +1,2 @@
+# Los scripts de shell se ejecutan en Linux (Render): siempre con fin de línea LF
+*.sh text eol=lf

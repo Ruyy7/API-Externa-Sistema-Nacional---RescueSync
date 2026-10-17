@@ -1,0 +1,1 @@
+CREATE DATABASE sistema_nacional_test;
