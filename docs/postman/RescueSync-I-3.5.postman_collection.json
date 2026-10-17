@@ -1,0 +1,3540 @@
+{
+  "info": {
+    "name": "RescueSync · Sistema Nacional · I-3.5 Liberación y cierre",
+    "description": "Casos de prueba del punto I-3.5 (liberación y cierre). La guía con cada caso y su respuesta esperada está en `docs/postman/casos-de-prueba-i-3.5.md`.\n\n1. `base_url` apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. En la pestaña **Variables**, poner las contraseñas de las cuentas de servicio en `password_webapp`, `password_bonita` y `password_auditor` (no están en el repositorio).\n3. Correr la colección entera (*Run collection*) o los pedidos en orden desde la carpeta 0. Los logins guardan los tokens y cada pedido ya usa el que corresponde.\n\nCada corrida registra su propia ONG de prueba y agrega el sufijo `{{corrida}}` a las referencias, así se puede repetir sobre la misma base.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Preparación: login, ONG de prueba y adjudicación",
+      "item": [
+        {
+          "name": "0.1 Login de la cuenta webapp",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Inicio de sesión (punto I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.\n\nGuarda el token en `token_webapp`. Si responde 401, falta la contraseña en la variable `password_webapp` o no es la correcta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"webapp\",\n  \"password\": \"{{password_webapp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"rol = \\\"SISTEMA_WEBAPP\\\"\", function () {",
+                  "    pm.expect(json[\"rol\"]).to.eql(\"SISTEMA_WEBAPP\");",
+                  "});",
+                  "pm.test(\"token_type = \\\"Bearer\\\"\", function () {",
+                  "    pm.expect(json[\"token_type\"]).to.eql(\"Bearer\");",
+                  "});",
+                  "pm.collectionVariables.set(\"token_webapp\", json[\"access_token\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "0.2 Login de la cuenta bonita",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Inicio de sesión (punto I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.\n\nGuarda el token en `token_bonita`. Si responde 401, falta la contraseña en la variable `password_bonita` o no es la correcta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"bonita\",\n  \"password\": \"{{password_bonita}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"rol = \\\"SISTEMA_BONITA\\\"\", function () {",
+                  "    pm.expect(json[\"rol\"]).to.eql(\"SISTEMA_BONITA\");",
+                  "});",
+                  "pm.test(\"token_type = \\\"Bearer\\\"\", function () {",
+                  "    pm.expect(json[\"token_type\"]).to.eql(\"Bearer\");",
+                  "});",
+                  "pm.collectionVariables.set(\"token_bonita\", json[\"access_token\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "0.3 Login de la cuenta auditor",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Inicio de sesión (punto I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.\n\nGuarda el token en `token_auditor`. Si responde 401, falta la contraseña en la variable `password_auditor` o no es la correcta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"auditor\",\n  \"password\": \"{{password_auditor}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"rol = \\\"AUDITOR\\\"\", function () {",
+                  "    pm.expect(json[\"rol\"]).to.eql(\"AUDITOR\");",
+                  "});",
+                  "pm.test(\"token_type = \\\"Bearer\\\"\", function () {",
+                  "    pm.expect(json[\"token_type\"]).to.eql(\"Bearer\");",
+                  "});",
+                  "pm.collectionVariables.set(\"token_auditor\", json[\"access_token\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "0.4 Registrar la ONG de prueba de esta corrida",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ongs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs"
+              ]
+            },
+            "description": "Registro directo de una ONG (punto I-3.1): queda `HABILITADA` en el acto y cada categoría es una fila de su inventario, con el máximo como total. No pide token.\n\nCada corrida registra una ONG nueva, con un CUIT válido y un email que se generan solos (`ong_cuit` y `ong_email`), así las cuentas del inventario siempre dan lo mismo. Se inscribe en 10 paramédicos y 15 rescatistas (reutilizables) y 2000 raciones (consumibles). Guarda el id en `ong_id`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razon_social\": \"Rescatistas de Prueba (Postman I-3.5)\",\n  \"cuit\": \"{{ong_cuit}}\",\n  \"email_contacto\": \"{{ong_email}}\",\n  \"telefono\": \"221 555-0105\",\n  \"password\": \"{{password_ong}}\",\n  \"categorias\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad_maxima\": 10\n    },\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad_maxima\": 15\n    },\n    {\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad_maxima\": 2000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"HABILITADA\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"HABILITADA\");",
+                  "});",
+                  "pm.test(\"cuit = la variable ong_cuit\", function () {",
+                  "    pm.expect(json[\"cuit\"]).to.eql(pm.collectionVariables.get(\"ong_cuit\"));",
+                  "});",
+                  "pm.collectionVariables.set(\"ong_id\", json[\"id\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "0.5 La ONG presenta la oferta 1: 5 paramédicos y 1000 raciones",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "Reserva (bloquea) los recursos de una oferta presentada (punto I-3.4).\n\nEs el punto 4. Deja la reserva de la oferta 1 en la convocatoria 1 de la emergencia 1 y guarda su id en `compromiso_1`. Lo que sigue en esta colección parte de acá.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"OF-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-1-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    },\n    {\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad\": 1000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_1\", json[\"id\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "0.6 El municipio adjudica 5 paramédicos y 800 raciones (adjudicación parcial)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_1}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_1}}",
+                "confirmacion"
+              ]
+            },
+            "description": "Compromete lo adjudicado por el municipio (punto I-3.4): lo adjudicado pasa de bloqueado a comprometido y la diferencia se libera en ese momento.\n\nTambién es el punto 4. El compromiso queda COMPROMETIDO con 5 paramédicos y 800 raciones; las 200 raciones no adjudicadas se liberan de la reserva. Desde acá actúa el punto 5. Cada ítem ya muestra `cantidad_liberada` 0 y `cantidad_pendiente` igual a lo comprometido.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    },\n    {\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad\": 800\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});",
+                  "pm.test(\"items.0.cantidad_comprometida = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"cantidad_comprometida\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"items.0.cantidad_pendiente = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"cantidad_pendiente\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"items.1.cantidad_comprometida = \\\"800.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][1][\"cantidad_comprometida\"]).to.eql(\"800.00\");",
+                  "});",
+                  "pm.test(\"items.1.cantidad_liberada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][1][\"cantidad_liberada\"]).to.eql(\"0.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "0.7 Inventario después de adjudicar",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "Inventario y disponibilidad de la ONG (punto I-3.2): `cantidad_total`, `cantidad_bloqueada` (reservas), `cantidad_comprometida` (adjudicado en ejecución) y `cantidad_disponible = total - bloqueada - comprometida`.\n\nPunto de partida del punto 5: 5 paramédicos y 800 raciones comprometidos, nada bloqueado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"0.tipo_recurso.codigo = \\\"PARAMEDICO\\\"\", function () {",
+                  "    pm.expect(json[0][\"tipo_recurso\"][\"codigo\"]).to.eql(\"PARAMEDICO\");",
+                  "});",
+                  "pm.test(\"0.cantidad_total = \\\"10.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_total\"]).to.eql(\"10.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_comprometida = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_comprometida\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_disponible = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_disponible\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"1.tipo_recurso.codigo = \\\"RACION_ALIMENTO\\\"\", function () {",
+                  "    pm.expect(json[1][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RACION_ALIMENTO\");",
+                  "});",
+                  "pm.test(\"1.cantidad_total = \\\"2000.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_total\"]).to.eql(\"2000.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_comprometida = \\\"800.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_comprometida\"]).to.eql(\"800.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_disponible = \\\"1200.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_disponible\"]).to.eql(\"1200.00\");",
+                  "});",
+                  "pm.test(\"2.tipo_recurso.codigo = \\\"RESCATISTA\\\"\", function () {",
+                  "    pm.expect(json[2][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RESCATISTA\");",
+                  "});",
+                  "pm.test(\"2.cantidad_total = \\\"15.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_total\"]).to.eql(\"15.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_comprometida = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_comprometida\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_disponible = \\\"15.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_disponible\"]).to.eql(\"15.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "0.8 Estado de la emergencia antes de liberar",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "Qué queda por liberar en la emergencia, por compromiso e ítem, con `todo_liberado` (lo que Bonita necesita para *Finalizaron todas las tareas?*), las reservas vigentes y el cierre, si existe.\n\nNada liberado todavía: `todo_liberado` es false y el único compromiso tiene 5 paramédicos y 800 raciones pendientes. Es lo que Bonita ve en *Monitorear recursos*."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"todo_liberado = false\", function () {",
+                  "    pm.expect(json[\"todo_liberado\"]).to.eql(false);",
+                  "});",
+                  "pm.test(\"cerrado = false\", function () {",
+                  "    pm.expect(json[\"cerrado\"]).to.eql(false);",
+                  "});",
+                  "pm.test(\"cierre = null\", function () {",
+                  "    pm.expect(json[\"cierre\"]).to.eql(null);",
+                  "});",
+                  "pm.test(\"reservas_vigentes = 0\", function () {",
+                  "    pm.expect(json[\"reservas_vigentes\"]).to.eql(0);",
+                  "});",
+                  "pm.test(\"compromisos.length = 1\", function () {",
+                  "    pm.expect(json[\"compromisos\"].length).to.eql(1);",
+                  "});",
+                  "pm.test(\"compromisos.0.estado = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});",
+                  "pm.test(\"compromisos.0.items.0.cantidad_pendiente = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"items\"][0][\"cantidad_pendiente\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"compromisos.0.items.1.cantidad_pendiente = \\\"800.00\\\"\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"items\"][1][\"cantidad_pendiente\"]).to.eql(\"800.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. La ONG informa actividades cumplidas",
+      "item": [
+        {
+          "name": "1.1 Terminaron 3 de los 5 paramédicos",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLa webapp informa la actividad cuando la ONG la marca como finalizada [E-7]. Como el paramédico es reutilizable, la acción es LIBERADO: vuelven 3 al stock. Quedan 2 pendientes y el compromiso sigue COMPROMETIDO (todavía hay raciones en ejecución). Guarda el id en `actividad_1`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-1-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 3,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Evacuación del barrio Norte terminada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"accion = \\\"LIBERADO\\\"\", function () {",
+                  "    pm.expect(json[\"accion\"]).to.eql(\"LIBERADO\");",
+                  "});",
+                  "pm.test(\"origen = \\\"INFORMADA\\\"\", function () {",
+                  "    pm.expect(json[\"origen\"]).to.eql(\"INFORMADA\");",
+                  "});",
+                  "pm.test(\"compromiso_id = la variable compromiso_1\", function () {",
+                  "    pm.expect(json[\"compromiso_id\"]).to.eql(Number(pm.collectionVariables.get(\"compromiso_1\")));",
+                  "});",
+                  "pm.test(\"estado_compromiso = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado_compromiso\"]).to.eql(\"COMPROMETIDO\");",
+                  "});",
+                  "pm.test(\"cantidad = \\\"3.00\\\"\", function () {",
+                  "    pm.expect(json[\"cantidad\"]).to.eql(\"3.00\");",
+                  "});",
+                  "pm.test(\"item.cantidad_liberada = \\\"3.00\\\"\", function () {",
+                  "    pm.expect(json[\"item\"][\"cantidad_liberada\"]).to.eql(\"3.00\");",
+                  "});",
+                  "pm.test(\"item.cantidad_pendiente = \\\"2.00\\\"\", function () {",
+                  "    pm.expect(json[\"item\"][\"cantidad_pendiente\"]).to.eql(\"2.00\");",
+                  "});",
+                  "pm.collectionVariables.set(\"actividad_1\", json[\"id\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.2 Inventario después de la actividad: los 3 paramédicos están disponibles",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "Inventario y disponibilidad de la ONG (punto I-3.2): `cantidad_total`, `cantidad_bloqueada` (reservas), `cantidad_comprometida` (adjudicado en ejecución) y `cantidad_disponible = total - bloqueada - comprometida`.\n\n`cantidad_comprometida` de paramédicos bajó de 5 a 2 y `cantidad_total` no cambió: lo reutilizable vuelve al stock."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"0.tipo_recurso.codigo = \\\"PARAMEDICO\\\"\", function () {",
+                  "    pm.expect(json[0][\"tipo_recurso\"][\"codigo\"]).to.eql(\"PARAMEDICO\");",
+                  "});",
+                  "pm.test(\"0.cantidad_total = \\\"10.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_total\"]).to.eql(\"10.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_comprometida = \\\"2.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_comprometida\"]).to.eql(\"2.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_disponible = \\\"8.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_disponible\"]).to.eql(\"8.00\");",
+                  "});",
+                  "pm.test(\"1.tipo_recurso.codigo = \\\"RACION_ALIMENTO\\\"\", function () {",
+                  "    pm.expect(json[1][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RACION_ALIMENTO\");",
+                  "});",
+                  "pm.test(\"1.cantidad_total = \\\"2000.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_total\"]).to.eql(\"2000.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_comprometida = \\\"800.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_comprometida\"]).to.eql(\"800.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_disponible = \\\"1200.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_disponible\"]).to.eql(\"1200.00\");",
+                  "});",
+                  "pm.test(\"2.tipo_recurso.codigo = \\\"RESCATISTA\\\"\", function () {",
+                  "    pm.expect(json[2][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RESCATISTA\");",
+                  "});",
+                  "pm.test(\"2.cantidad_total = \\\"15.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_total\"]).to.eql(\"15.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_comprometida = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_comprometida\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_disponible = \\\"15.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_disponible\"]).to.eql(\"15.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.3 Reintento: la webapp repite el mismo pedido",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLa misma `actividad_referencia` con los mismos datos es un reintento (por ejemplo, después de un timeout): responde 200 con la actividad ya registrada y no libera de nuevo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-1-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 3,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Evacuación del barrio Norte terminada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"id = la variable actividad_1\", function () {",
+                  "    pm.expect(json[\"id\"]).to.eql(Number(pm.collectionVariables.get(\"actividad_1\")));",
+                  "});",
+                  "pm.test(\"item.cantidad_liberada = \\\"3.00\\\"\", function () {",
+                  "    pm.expect(json[\"item\"][\"cantidad_liberada\"]).to.eql(\"3.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.4 La misma referencia con otra cantidad",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nNo es un reintento: la referencia ya se usó con otros datos. Nada cambia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-1-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 2,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"ACTIVIDAD_DUPLICADA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"ACTIVIDAD_DUPLICADA\");",
+                  "});",
+                  "pm.test(\"detalles.actividad_id = la variable actividad_1\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"actividad_id\"]).to.eql(Number(pm.collectionVariables.get(\"actividad_1\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.5 Más paramédicos de los que quedan pendientes",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nQuedan 2 pendientes y se informan 3. Se rechaza con el detalle y no se libera nada; la base lo frenaría igual con el CHECK `cantidad_liberada <= cantidad_comprometida`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-2-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 3,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"EXCEDE_PENDIENTE\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"EXCEDE_PENDIENTE\");",
+                  "});",
+                  "pm.test(\"detalles.pedida = \\\"3.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"pedida\"]).to.eql(\"3.00\");",
+                  "});",
+                  "pm.test(\"detalles.pendiente = \\\"2.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"pendiente\"]).to.eql(\"2.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.6 Se entregaron 500 raciones",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLa ración es consumible: la acción es CONSUMIDO. Quedan 300 pendientes.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-2-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"RACION_ALIMENTO\",\n  \"cantidad\": 500,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Entregadas en el centro de evacuados\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"accion = \\\"CONSUMIDO\\\"\", function () {",
+                  "    pm.expect(json[\"accion\"]).to.eql(\"CONSUMIDO\");",
+                  "});",
+                  "pm.test(\"cantidad = \\\"500.00\\\"\", function () {",
+                  "    pm.expect(json[\"cantidad\"]).to.eql(\"500.00\");",
+                  "});",
+                  "pm.test(\"item.cantidad_pendiente = \\\"300.00\\\"\", function () {",
+                  "    pm.expect(json[\"item\"][\"cantidad_pendiente\"]).to.eql(\"300.00\");",
+                  "});",
+                  "pm.test(\"estado_compromiso = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado_compromiso\"]).to.eql(\"COMPROMETIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.7 Inventario después de consumir: bajan comprometido y total, lo disponible no cambia",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "Inventario y disponibilidad de la ONG (punto I-3.2): `cantidad_total`, `cantidad_bloqueada` (reservas), `cantidad_comprometida` (adjudicado en ejecución) y `cantidad_disponible = total - bloqueada - comprometida`.\n\nLas raciones pasaron de 2000 a 1500 en total y de 800 a 300 comprometidas; las 1200 disponibles son las mismas, porque las que se consumieron ya no estaban disponibles. El total es el tope que la ONG declaró: lo vuelve a subir con `PUT /ongs/yo/categorias` cuando repone."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"0.tipo_recurso.codigo = \\\"PARAMEDICO\\\"\", function () {",
+                  "    pm.expect(json[0][\"tipo_recurso\"][\"codigo\"]).to.eql(\"PARAMEDICO\");",
+                  "});",
+                  "pm.test(\"0.cantidad_total = \\\"10.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_total\"]).to.eql(\"10.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_comprometida = \\\"2.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_comprometida\"]).to.eql(\"2.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_disponible = \\\"8.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_disponible\"]).to.eql(\"8.00\");",
+                  "});",
+                  "pm.test(\"1.tipo_recurso.codigo = \\\"RACION_ALIMENTO\\\"\", function () {",
+                  "    pm.expect(json[1][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RACION_ALIMENTO\");",
+                  "});",
+                  "pm.test(\"1.cantidad_total = \\\"1500.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_total\"]).to.eql(\"1500.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_comprometida = \\\"300.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_comprometida\"]).to.eql(\"300.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_disponible = \\\"1200.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_disponible\"]).to.eql(\"1200.00\");",
+                  "});",
+                  "pm.test(\"2.tipo_recurso.codigo = \\\"RESCATISTA\\\"\", function () {",
+                  "    pm.expect(json[2][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RESCATISTA\");",
+                  "});",
+                  "pm.test(\"2.cantidad_total = \\\"15.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_total\"]).to.eql(\"15.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_comprometida = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_comprometida\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_disponible = \\\"15.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_disponible\"]).to.eql(\"15.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.8 Terminaron los 2 paramédicos restantes",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nEl ítem de paramédicos queda sin pendiente, pero el compromiso sigue COMPROMETIDO porque todavía tiene 300 raciones en ejecución: pasa a FINALIZADO recién cuando ningún ítem tiene pendiente.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-3-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 2,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"item.cantidad_pendiente = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[\"item\"][\"cantidad_pendiente\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"estado_compromiso = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado_compromiso\"]).to.eql(\"COMPROMETIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.9 El compromiso con el avance de la liberación por ítem",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_1}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_1}}"
+              ]
+            },
+            "description": "Detalle de una reserva o compromiso (punto I-3.4). Desde I-3.5 cada ítem trae `cantidad_liberada` y `cantidad_pendiente`.\n\nParamédicos: 5 comprometidos, 5 liberados, 0 pendientes. Raciones: 800, 500 y 300."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});",
+                  "pm.test(\"items.0.cantidad_liberada = \\\"5.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"cantidad_liberada\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"items.0.cantidad_pendiente = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][0][\"cantidad_pendiente\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"items.1.cantidad_liberada = \\\"500.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][1][\"cantidad_liberada\"]).to.eql(\"500.00\");",
+                  "});",
+                  "pm.test(\"items.1.cantidad_pendiente = \\\"300.00\\\"\", function () {",
+                  "    pm.expect(json[\"items\"][1][\"cantidad_pendiente\"]).to.eql(\"300.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Reglas del registro de actividades",
+      "item": [
+        {
+          "name": "2.1 Medio paramédico",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLas personas se cuentan en unidades enteras (la unidad de medida no admite decimales).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 0.5,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 Unprocessable Entity\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"VALIDACION\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"VALIDACION\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.2 Una fecha futura",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLa fecha de cumplimiento no puede ser posterior a ahora (hay 5 minutos de tolerancia de reloj). `fecha_futura` es mañana.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_futura}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 Unprocessable Entity\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"FECHA_FUTURA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"FECHA_FUTURA\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.3 Una categoría que no existe en el catálogo",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nUn código fuera del catálogo nacional indica un catálogo desalineado con la webapp, igual que en I-3.3.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"DRON\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 Unprocessable Entity\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"TIPO_RECURSO_DESCONOCIDO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"TIPO_RECURSO_DESCONOCIDO\");",
+                  "});",
+                  "pm.test(\"detalles.tipos_recurso.0 = \\\"DRON\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"tipos_recurso\"][0]).to.eql(\"DRON\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.4 Una categoría sin compromiso en la emergencia",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLa ONG está inscripta en rescatistas, pero no comprometió ninguno en esta emergencia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"RESCATISTA\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_ENCONTRADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_ENCONTRADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.5 Un CUIT que no está registrado",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLa ONG se identifica por CUIT en toda la API; uno desconocido es 422 ONG_INEXISTENTE, como en I-3.4.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"30-99999999-9\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 Unprocessable Entity\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"ONG_INEXISTENTE\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"ONG_INEXISTENTE\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.6 La ONG presenta la oferta 2: 4 rescatistas (queda reservada, sin adjudicar)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "Reserva (bloquea) los recursos de una oferta presentada (punto I-3.4).\n\nPrepara el caso siguiente: una reserva en la convocatoria 2 de la misma emergencia que el municipio no adjudica. Guarda el id en `compromiso_2`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"OF-2-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-2-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 4\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_2\", json[\"id\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.7 Una actividad sobre una reserva sin adjudicar",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nSolo se liberan recursos de un compromiso COMPROMETIDO. La reserva sigue RESERVADO y `cantidad_bloqueada` no se toca: eso es del punto 4.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"RESCATISTA\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"TRANSICION_INVALIDA\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"TRANSICION_INVALIDA\");",
+                  "});",
+                  "pm.test(\"detalles.compromisos.0.estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"compromisos\"][0][\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.8 La ONG también va en un consorcio: oferta 3 con 2 paramédicos",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/compromisos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ]
+            },
+            "description": "Reserva (bloquea) los recursos de una oferta presentada (punto I-3.4).\n\nPrepara la ambigüedad: la misma ONG, la misma emergencia y la misma categoría en otra oferta. Guarda el id en `compromiso_consorcio`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oferta_referencia\": \"OF-CONSORCIO-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-1-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.collectionVariables.set(\"compromiso_consorcio\", json[\"id\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.9 El municipio adjudica la oferta del consorcio",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/compromisos/{{compromiso_consorcio}}/confirmacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos",
+                "{{compromiso_consorcio}}",
+                "confirmacion"
+              ]
+            },
+            "description": "Compromete lo adjudicado por el municipio (punto I-3.4): lo adjudicado pasa de bloqueado a comprometido y la diferencia se libera en ese momento.\n\nAhora la ONG tiene dos compromisos COMPROMETIDO con paramédicos en la emergencia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.10 Una actividad de paramédicos sin decir de qué oferta",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nHay dos compromisos posibles (la oferta 1 y la del consorcio): la API no adivina y lista las ofertas candidatas para reenviar el pedido con `oferta_referencia`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 Unprocessable Entity\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"COMPROMISO_AMBIGUO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"COMPROMISO_AMBIGUO\");",
+                  "});",
+                  "pm.test(\"detalles.ofertas.length = 2\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"ofertas\"].length).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.11 Con oferta_referencia de la oferta 1, que ya no tiene paramédicos pendientes",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nDesambiguar funciona, pero en la oferta 1 los 5 paramédicos ya se liberaron.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\",\n  \"oferta_referencia\": \"OF-1-{{corrida}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"EXCEDE_PENDIENTE\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"EXCEDE_PENDIENTE\");",
+                  "});",
+                  "pm.test(\"detalles.pendiente = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"pendiente\"]).to.eql(\"0.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.12 Con oferta_referencia del consorcio: terminó 1 de los 2 paramédicos",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nSe libera del compromiso correcto. Queda 1 paramédico pendiente en el consorcio.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-4-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\",\n  \"oferta_referencia\": \"OF-CONSORCIO-{{corrida}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"compromiso_id = la variable compromiso_consorcio\", function () {",
+                  "    pm.expect(json[\"compromiso_id\"]).to.eql(Number(pm.collectionVariables.get(\"compromiso_consorcio\")));",
+                  "});",
+                  "pm.test(\"item.cantidad_pendiente = \\\"1.00\\\"\", function () {",
+                  "    pm.expect(json[\"item\"][\"cantidad_pendiente\"]).to.eql(\"1.00\");",
+                  "});",
+                  "pm.test(\"estado_compromiso = \\\"COMPROMETIDO\\\"\", function () {",
+                  "    pm.expect(json[\"estado_compromiso\"]).to.eql(\"COMPROMETIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Liberación de los recursos de la emergencia (Liberar recursos)",
+      "item": [
+        {
+          "name": "3.1 Estado de la emergencia: quedan 300 raciones y 1 paramédico",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "Qué queda por liberar en la emergencia, por compromiso e ítem, con `todo_liberado` (lo que Bonita necesita para *Finalizaron todas las tareas?*), las reservas vigentes y el cierre, si existe.\n\nDos compromisos COMPROMETIDO con pendiente y una reserva vigente (la oferta 2). `todo_liberado` sigue en false: Bonita vuelve a *Monitorear recursos*."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"todo_liberado = false\", function () {",
+                  "    pm.expect(json[\"todo_liberado\"]).to.eql(false);",
+                  "});",
+                  "pm.test(\"reservas_vigentes = 1\", function () {",
+                  "    pm.expect(json[\"reservas_vigentes\"]).to.eql(1);",
+                  "});",
+                  "pm.test(\"compromisos.length = 3\", function () {",
+                  "    pm.expect(json[\"compromisos\"].length).to.eql(3);",
+                  "});",
+                  "pm.test(\"compromisos.0.items.1.cantidad_pendiente = \\\"300.00\\\"\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"items\"][1][\"cantidad_pendiente\"]).to.eql(\"300.00\");",
+                  "});",
+                  "pm.test(\"compromisos.2.items.0.cantidad_pendiente = \\\"1.00\\\"\", function () {",
+                  "    pm.expect(json[\"compromisos\"][2][\"items\"][0][\"cantidad_pendiente\"]).to.eql(\"1.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "3.2 Cerrar el proyecto antes de liberar",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/cierre",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "cierre"
+              ]
+            },
+            "description": "*Cerrar proyecto* (tarea de servicio del proceso): registra el cierre solo si no queda nada comprometido; si queda, responde 409 RECURSOS_SIN_LIBERAR. Repetirlo devuelve el mismo cierre con 200.\n\nEl cierre no libera nada: con recursos comprometidos responde 409 y dice cuáles son. Hay que informar las actividades o liberar la emergencia primero.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"observaciones\": \"Fin del operativo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"RECURSOS_SIN_LIBERAR\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"RECURSOS_SIN_LIBERAR\");",
+                  "});",
+                  "pm.test(\"detalles.compromisos.length = 2\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"compromisos\"].length).to.eql(2);",
+                  "});",
+                  "pm.test(\"detalles.compromisos.0.pendiente.RACION_ALIMENTO = \\\"300.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"compromisos\"][0][\"pendiente\"][\"RACION_ALIMENTO\"]).to.eql(\"300.00\");",
+                  "});",
+                  "pm.test(\"detalles.compromisos.1.pendiente.PARAMEDICO = \\\"1.00\\\"\", function () {",
+                  "    pm.expect(json[\"detalles\"][\"compromisos\"][1][\"pendiente\"][\"PARAMEDICO\"]).to.eql(\"1.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "3.3 Bonita libera los recursos de la emergencia",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "*Liberar recursos* (tarea de servicio del proceso): libera todo lo que siga comprometido en la emergencia, con origen CIERRE, y finaliza esos compromisos. Es idempotente y no toca las reservas sin adjudicar.\n\nLo que las ONGs no informaron se libera igual: 300 raciones (CONSUMIDO) y 1 paramédico (LIBERADO), las dos con origen CIERRE y sin `actividad_referencia`. Los dos compromisos pasan a FINALIZADO. La reserva de la oferta 2 no se toca.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"observaciones\": \"Informe relevado por el Centro Coordinador\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"liberaciones.length = 2\", function () {",
+                  "    pm.expect(json[\"liberaciones\"].length).to.eql(2);",
+                  "});",
+                  "pm.test(\"liberaciones.0.tipo_recurso.codigo = \\\"RACION_ALIMENTO\\\"\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][0][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RACION_ALIMENTO\");",
+                  "});",
+                  "pm.test(\"liberaciones.0.cantidad = \\\"300.00\\\"\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][0][\"cantidad\"]).to.eql(\"300.00\");",
+                  "});",
+                  "pm.test(\"liberaciones.0.accion = \\\"CONSUMIDO\\\"\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][0][\"accion\"]).to.eql(\"CONSUMIDO\");",
+                  "});",
+                  "pm.test(\"liberaciones.0.origen = \\\"CIERRE\\\"\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][0][\"origen\"]).to.eql(\"CIERRE\");",
+                  "});",
+                  "pm.test(\"liberaciones.0.actividad_referencia = null\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][0][\"actividad_referencia\"]).to.eql(null);",
+                  "});",
+                  "pm.test(\"liberaciones.1.tipo_recurso.codigo = \\\"PARAMEDICO\\\"\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][1][\"tipo_recurso\"][\"codigo\"]).to.eql(\"PARAMEDICO\");",
+                  "});",
+                  "pm.test(\"liberaciones.1.cantidad = \\\"1.00\\\"\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][1][\"cantidad\"]).to.eql(\"1.00\");",
+                  "});",
+                  "pm.test(\"liberaciones.1.accion = \\\"LIBERADO\\\"\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][1][\"accion\"]).to.eql(\"LIBERADO\");",
+                  "});",
+                  "pm.test(\"todo_liberado = true\", function () {",
+                  "    pm.expect(json[\"todo_liberado\"]).to.eql(true);",
+                  "});",
+                  "pm.test(\"reservas_vigentes = 1\", function () {",
+                  "    pm.expect(json[\"reservas_vigentes\"]).to.eql(1);",
+                  "});",
+                  "pm.test(\"compromisos.0.estado = \\\"FINALIZADO\\\"\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"estado\"]).to.eql(\"FINALIZADO\");",
+                  "});",
+                  "pm.test(\"compromisos.1.estado = \\\"RESERVADO\\\"\", function () {",
+                  "    pm.expect(json[\"compromisos\"][1][\"estado\"]).to.eql(\"RESERVADO\");",
+                  "});",
+                  "pm.test(\"compromisos.2.estado = \\\"FINALIZADO\\\"\", function () {",
+                  "    pm.expect(json[\"compromisos\"][2][\"estado\"]).to.eql(\"FINALIZADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "3.4 Repetir la liberación",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "*Liberar recursos* (tarea de servicio del proceso): libera todo lo que siga comprometido en la emergencia, con origen CIERRE, y finaliza esos compromisos. Es idempotente y no toca las reservas sin adjudicar.\n\nEs idempotente: no quedaba nada pendiente, así que `liberaciones` viene vacío y nada cambia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"liberaciones.length = 0\", function () {",
+                  "    pm.expect(json[\"liberaciones\"].length).to.eql(0);",
+                  "});",
+                  "pm.test(\"todo_liberado = true\", function () {",
+                  "    pm.expect(json[\"todo_liberado\"]).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "3.5 Inventario después de liberar la emergencia",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "Inventario y disponibilidad de la ONG (punto I-3.2): `cantidad_total`, `cantidad_bloqueada` (reservas), `cantidad_comprometida` (adjudicado en ejecución) y `cantidad_disponible = total - bloqueada - comprometida`.\n\nNada comprometido. Las raciones quedaron en 1200 (se consumieron 800 en total) y los 4 rescatistas de la oferta 2 siguen bloqueados por su reserva."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"0.tipo_recurso.codigo = \\\"PARAMEDICO\\\"\", function () {",
+                  "    pm.expect(json[0][\"tipo_recurso\"][\"codigo\"]).to.eql(\"PARAMEDICO\");",
+                  "});",
+                  "pm.test(\"0.cantidad_total = \\\"10.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_total\"]).to.eql(\"10.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_comprometida = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_comprometida\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"0.cantidad_disponible = \\\"10.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad_disponible\"]).to.eql(\"10.00\");",
+                  "});",
+                  "pm.test(\"1.tipo_recurso.codigo = \\\"RACION_ALIMENTO\\\"\", function () {",
+                  "    pm.expect(json[1][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RACION_ALIMENTO\");",
+                  "});",
+                  "pm.test(\"1.cantidad_total = \\\"1200.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_total\"]).to.eql(\"1200.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_bloqueada = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_bloqueada\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_comprometida = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_comprometida\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad_disponible = \\\"1200.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad_disponible\"]).to.eql(\"1200.00\");",
+                  "});",
+                  "pm.test(\"2.tipo_recurso.codigo = \\\"RESCATISTA\\\"\", function () {",
+                  "    pm.expect(json[2][\"tipo_recurso\"][\"codigo\"]).to.eql(\"RESCATISTA\");",
+                  "});",
+                  "pm.test(\"2.cantidad_total = \\\"15.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_total\"]).to.eql(\"15.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_bloqueada = \\\"4.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_bloqueada\"]).to.eql(\"4.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_comprometida = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_comprometida\"]).to.eql(\"0.00\");",
+                  "});",
+                  "pm.test(\"2.cantidad_disponible = \\\"11.00\\\"\", function () {",
+                  "    pm.expect(json[2][\"cantidad_disponible\"]).to.eql(\"11.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Cierre del proyecto (Cerrar proyecto)",
+      "item": [
+        {
+          "name": "4.1 Bonita cierra el proyecto",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/cierre",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "cierre"
+              ]
+            },
+            "description": "*Cerrar proyecto* (tarea de servicio del proceso): registra el cierre solo si no queda nada comprometido; si queda, responde 409 RECURSOS_SIN_LIBERAR. Repetirlo devuelve el mismo cierre con 200.\n\nYa no queda nada comprometido. Guarda la fecha de cierre en `fecha_cierre` para compararla en el reintento.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"observaciones\": \"Fin del operativo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"emergencia_referencia = EMG-1-<corrida>\", function () {",
+                  "    pm.expect(json[\"emergencia_referencia\"]).to.eql(pm.variables.replaceIn(\"EMG-1-{{corrida}}\"));",
+                  "});",
+                  "pm.test(\"observaciones = \\\"Fin del operativo\\\"\", function () {",
+                  "    pm.expect(json[\"observaciones\"]).to.eql(\"Fin del operativo\");",
+                  "});",
+                  "pm.collectionVariables.set(\"fecha_cierre\", json[\"fecha_cierre\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "4.2 Repetir el cierre",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/cierre",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "cierre"
+              ]
+            },
+            "description": "*Cerrar proyecto* (tarea de servicio del proceso): registra el cierre solo si no queda nada comprometido; si queda, responde 409 RECURSOS_SIN_LIBERAR. Repetirlo devuelve el mismo cierre con 200.\n\nDevuelve el mismo cierre con 200: la fecha es la de la primera llamada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"fecha_cierre = la variable fecha_cierre\", function () {",
+                  "    pm.expect(json[\"fecha_cierre\"]).to.eql(pm.collectionVariables.get(\"fecha_cierre\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "4.3 Estado de la emergencia cerrada",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "Qué queda por liberar en la emergencia, por compromiso e ítem, con `todo_liberado` (lo que Bonita necesita para *Finalizaron todas las tareas?*), las reservas vigentes y el cierre, si existe.\n\n`cerrado` en true y el cierre con sus datos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"cerrado = true\", function () {",
+                  "    pm.expect(json[\"cerrado\"]).to.eql(true);",
+                  "});",
+                  "pm.test(\"cierre.observaciones = \\\"Fin del operativo\\\"\", function () {",
+                  "    pm.expect(json[\"cierre\"][\"observaciones\"]).to.eql(\"Fin del operativo\");",
+                  "});",
+                  "pm.test(\"todo_liberado = true\", function () {",
+                  "    pm.expect(json[\"todo_liberado\"]).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "4.4 Una actividad después del cierre",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nEl proyecto terminó: no se aceptan más actividades para la emergencia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-5-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"PROYECTO_CERRADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROYECTO_CERRADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "4.5 Liberar después del cierre",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "*Liberar recursos* (tarea de servicio del proceso): libera todo lo que siga comprometido en la emergencia, con origen CIERRE, y finaliza esos compromisos. Es idempotente y no toca las reservas sin adjudicar.\n\nTampoco se libera: el orden del proceso es liberar y después cerrar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"PROYECTO_CERRADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROYECTO_CERRADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "4.6 Una emergencia que el Sistema Nacional no conoce",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/no-existe/cierre",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "no-existe",
+                "cierre"
+              ]
+            },
+            "description": "*Cerrar proyecto* (tarea de servicio del proceso): registra el cierre solo si no queda nada comprometido; si queda, responde 409 RECURSOS_SIN_LIBERAR. Repetirlo devuelve el mismo cierre con 200.\n\nNinguna convocatoria nombra esa emergencia.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_ENCONTRADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_ENCONTRADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Historial de actividades y liberaciones",
+      "item": [
+        {
+          "name": "5.1 Todo lo liberado en la emergencia",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades?emergencia=EMG-1-{{corrida}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ],
+              "query": [
+                {
+                  "key": "emergencia",
+                  "value": "EMG-1-{{corrida}}"
+                }
+              ]
+            },
+            "description": "Historial paginado de actividades y liberaciones, de la más reciente a la más antigua. Filtros: `emergencia`, `ong_cuit`, `tipo_recurso`, `origen` y `compromiso_id`.\n\nCuatro actividades informadas por la ONG y dos liberaciones del cierre, de la más reciente a la más antigua."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"length = 6\", function () {",
+                  "    pm.expect(json.length).to.eql(6);",
+                  "});",
+                  "pm.test(\"0.origen = \\\"CIERRE\\\"\", function () {",
+                  "    pm.expect(json[0][\"origen\"]).to.eql(\"CIERRE\");",
+                  "});",
+                  "pm.test(\"5.actividad_referencia = ACT-1-<corrida>\", function () {",
+                  "    pm.expect(json[5][\"actividad_referencia\"]).to.eql(pm.variables.replaceIn(\"ACT-1-{{corrida}}\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.2 Solo lo que liberó el cierre",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades?emergencia=EMG-1-{{corrida}}&origen=CIERRE",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ],
+              "query": [
+                {
+                  "key": "emergencia",
+                  "value": "EMG-1-{{corrida}}"
+                },
+                {
+                  "key": "origen",
+                  "value": "CIERRE"
+                }
+              ]
+            },
+            "description": "Historial paginado de actividades y liberaciones, de la más reciente a la más antigua. Filtros: `emergencia`, `ong_cuit`, `tipo_recurso`, `origen` y `compromiso_id`.\n\nLas dos liberaciones de *Liberar recursos*."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"length = 2\", function () {",
+                  "    pm.expect(json.length).to.eql(2);",
+                  "});",
+                  "pm.test(\"0.origen = \\\"CIERRE\\\"\", function () {",
+                  "    pm.expect(json[0][\"origen\"]).to.eql(\"CIERRE\");",
+                  "});",
+                  "pm.test(\"1.origen = \\\"CIERRE\\\"\", function () {",
+                  "    pm.expect(json[1][\"origen\"]).to.eql(\"CIERRE\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.3 Las raciones de la ONG",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades?ong_cuit={{ong_cuit}}&tipo_recurso=RACION_ALIMENTO",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ],
+              "query": [
+                {
+                  "key": "ong_cuit",
+                  "value": "{{ong_cuit}}"
+                },
+                {
+                  "key": "tipo_recurso",
+                  "value": "RACION_ALIMENTO"
+                }
+              ]
+            },
+            "description": "Historial paginado de actividades y liberaciones, de la más reciente a la más antigua. Filtros: `emergencia`, `ong_cuit`, `tipo_recurso`, `origen` y `compromiso_id`.\n\nLas 500 informadas y las 300 del cierre: 800 raciones consumidas en total."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"length = 2\", function () {",
+                  "    pm.expect(json.length).to.eql(2);",
+                  "});",
+                  "pm.test(\"0.cantidad = \\\"300.00\\\"\", function () {",
+                  "    pm.expect(json[0][\"cantidad\"]).to.eql(\"300.00\");",
+                  "});",
+                  "pm.test(\"1.cantidad = \\\"500.00\\\"\", function () {",
+                  "    pm.expect(json[1][\"cantidad\"]).to.eql(\"500.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.4 Detalle de la primera actividad",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades/{{actividad_1}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades",
+                "{{actividad_1}}"
+              ]
+            },
+            "description": "Detalle de una actividad.\n\nLa actividad 1 tal como quedó, con el ítem ya liberado del todo y el compromiso FINALIZADO."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"actividad_referencia = ACT-1-<corrida>\", function () {",
+                  "    pm.expect(json[\"actividad_referencia\"]).to.eql(pm.variables.replaceIn(\"ACT-1-{{corrida}}\"));",
+                  "});",
+                  "pm.test(\"estado_compromiso = \\\"FINALIZADO\\\"\", function () {",
+                  "    pm.expect(json[\"estado_compromiso\"]).to.eql(\"FINALIZADO\");",
+                  "});",
+                  "pm.test(\"item.cantidad_pendiente = \\\"0.00\\\"\", function () {",
+                  "    pm.expect(json[\"item\"][\"cantidad_pendiente\"]).to.eql(\"0.00\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.5 Una actividad que no existe",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades/999999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades",
+                "999999"
+              ]
+            },
+            "description": "Detalle de una actividad."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_ENCONTRADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_ENCONTRADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Seguridad",
+      "item": [
+        {
+          "name": "6.1 Informar una actividad sin token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nTodos los endpoints del punto exigen el JWT de una cuenta de servicio.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-6-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_AUTENTICADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_AUTENTICADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "6.2 Informar con un token inválido",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "no-es-un-token",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-6-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_AUTENTICADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_AUTENTICADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "6.3 El auditor no puede informar actividades",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nEl auditor solo consulta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-6-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"PROHIBIDO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "6.4 El auditor no puede cerrar el proyecto",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_auditor}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/cierre",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "cierre"
+              ]
+            },
+            "description": "*Cerrar proyecto* (tarea de servicio del proceso): registra el cierre solo si no queda nada comprometido; si queda, responde 409 RECURSOS_SIN_LIBERAR. Repetirlo devuelve el mismo cierre con 200.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"PROHIBIDO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "6.5 Login de la ONG de prueba",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "Inicio de sesión (punto I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.\n\nLa ONG registrada en 0.4 entra con su email. Guarda el token en `token_ong`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{ong_email}}\",\n  \"password\": \"{{password_ong}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"rol = \\\"ONG\\\"\", function () {",
+                  "    pm.expect(json[\"rol\"]).to.eql(\"ONG\");",
+                  "});",
+                  "pm.collectionVariables.set(\"token_ong\", json[\"access_token\"]);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "6.6 La ONG no puede informar con su propio token",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_ong}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "actividades"
+              ]
+            },
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLa plataforma informa por la ONG [E-7]; un token de ONG no entra en este punto.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividad_referencia\": \"ACT-6-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 1,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Tarea cumplida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"PROHIBIDO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "6.7 Consultar el estado de la emergencia sin token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "Qué queda por liberar en la emergencia, por compromiso e ítem, con `todo_liberado` (lo que Bonita necesita para *Finalizaron todas las tareas?*), las reservas vigentes y el cierre, si existe."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = \\\"NO_AUTENTICADO\\\"\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_AUTENTICADO\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Fechas relativas a hoy, para que la colección sirva cualquier día",
+          "const hora = 60 * 60 * 1000;",
+          "const dia = 24 * hora;",
+          "const ahora = Date.now();",
+          "pm.collectionVariables.set(\"cierre_futuro\", new Date(ahora + 7 * dia).toISOString());",
+          "pm.collectionVariables.set(\"limite_futuro\", new Date(ahora + 14 * dia).toISOString());",
+          "pm.collectionVariables.set(\"fecha_futura\", new Date(ahora + dia).toISOString());",
+          "",
+          "// Datos propios de cada corrida: un sufijo para las referencias, una ONG nueva con un CUIT",
+          "// válido y la fecha de cumplimiento de las actividades (fija en la corrida: un reintento manda",
+          "// el mismo cuerpo). Se generan en el primer pedido (o si faltan) y los demás usan los mismos.",
+          "if (!pm.collectionVariables.get(\"corrida\") || pm.info.requestName.startsWith(\"0.1 \")) {",
+          "    pm.collectionVariables.set(\"fecha_cumplida\", new Date(ahora - hora).toISOString());",
+          "    const corrida = Date.now().toString(36).toUpperCase();",
+          "    let base, resto;",
+          "    do {",
+          "        base = \"30\" + String(Math.floor(Math.random() * 1e8)).padStart(8, \"0\");",
+          "        const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];",
+          "        resto = [...base].reduce((s, d, i) => s + Number(d) * pesos[i], 0) % 11;",
+          "    } while (resto === 1);",
+          "    const verificador = resto === 0 ? 0 : 11 - resto;",
+          "    pm.collectionVariables.set(\"corrida\", corrida);",
+          "    pm.collectionVariables.set(\"ong_cuit\", `${base.slice(0, 2)}-${base.slice(2)}-${verificador}`);",
+          "    pm.collectionVariables.set(\"ong_email\", `postman-i35-${corrida.toLowerCase()}@ejemplo.org.ar`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "password_webapp",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "password_bonita",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "password_auditor",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "password_ong",
+      "value": "clave-segura-1",
+      "type": "string"
+    },
+    {
+      "key": "token_webapp",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_bonita",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_auditor",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token_ong",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "corrida",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ong_cuit",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ong_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ong_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "compromiso_1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "compromiso_2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "compromiso_consorcio",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "actividad_1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fecha_cierre",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cierre_futuro",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "limite_futuro",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fecha_cumplida",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "fecha_futura",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
