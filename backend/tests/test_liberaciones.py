@@ -308,3 +308,137 @@ def test_swagger_documenta_el_token_y_los_errores(client):
     registrar = especificacion["paths"][ACTIVIDADES]["post"]
     assert registrar["security"] == [{"bearerAuth": []}]
     assert {"200", "201", "401", "403", "404", "409", "422"} <= set(registrar["responses"])
+    cierre = especificacion["paths"]["/api/v1/emergencias/{referencia}/cierre"]["post"]
+    assert cierre["security"] == [{"bearerAuth": []}]
+    assert {"200", "201", "404", "409"} <= set(cierre["responses"])
+
+
+# --- Liberación y cierre de la emergencia --------------------------------------------------
+
+EMERGENCIA = "/api/v1/emergencias/emergencia-1"
+
+
+def test_el_estado_de_la_emergencia_dice_que_queda_por_liberar(client):
+    comprometido(client)
+    reserva_creada(client, "oferta-2", items=[("RESCATISTA", 4)], convocatoria="conv-2")
+    informada(client, actividad(cantidad=3))
+
+    estado = client.get(f"{EMERGENCIA}/liberacion", headers=headers(RolSistema.AUDITOR)).json
+
+    assert estado["todo_liberado"] is False
+    assert (estado["cerrado"], estado["cierre"]) == (False, None)
+    assert estado["reservas_vigentes"] == 1
+    adjudicado, reserva = estado["compromisos"]
+    assert adjudicado["estado"] == "COMPROMETIDO"
+    assert adjudicado["items"][0]["cantidad_pendiente"] == "2.00"
+    assert (reserva["estado"], reserva["items"][0]["cantidad_comprometida"]) == (
+        "RESERVADO",
+        "0.00",
+    )
+    respuesta = client.get("/api/v1/emergencias/desconocida/liberacion", headers=headers())
+    assert respuesta.status_code == 404
+
+
+def test_liberar_la_emergencia_libera_lo_pendiente_y_finaliza(client):
+    """*Liberar recursos* (Bonita): lo que las ONGs no informaron se libera igual."""
+    comprometido(client)
+    comprometido(
+        client,
+        items=[("RACION_ALIMENTO", 1000)],
+        adjudicado=[("RACION_ALIMENTO", 800)],
+        oferta="oferta-raciones",
+        cuit=ALIMENTOS,
+    )
+    informada(client, actividad(cantidad=3))
+
+    respuesta = client.post(
+        f"{EMERGENCIA}/liberacion",
+        json={"observaciones": "Informe relevado"},
+        headers=headers(RolSistema.BONITA),
+    )
+
+    assert respuesta.status_code == 200, respuesta.json
+    resultado = respuesta.json
+    assert {
+        (li["tipo_recurso"]["codigo"], li["cantidad"], li["accion"], li["origen"])
+        for li in resultado["liberaciones"]
+    } == {
+        ("PARAMEDICO", "2.00", "LIBERADO", "CIERRE"),
+        ("RACION_ALIMENTO", "800.00", "CONSUMIDO", "CIERRE"),
+    }
+    assert all(li["actividad_referencia"] is None for li in resultado["liberaciones"])
+    assert resultado["todo_liberado"] is True
+    assert [c["estado"] for c in resultado["compromisos"]] == ["FINALIZADO", "FINALIZADO"]
+    assert contadores("PARAMEDICO") == (12, 2, 0)
+    assert contadores("RACION_ALIMENTO", ALIMENTOS) == (4200, 700, 300)
+
+    repetida = client.post(f"{EMERGENCIA}/liberacion", json={}, headers=headers()).json
+    assert repetida["liberaciones"] == []
+    assert cantidad_de_actividades() == 3
+
+
+def test_liberar_la_emergencia_no_toca_las_reservas(client):
+    comprometido(client)
+    reserva_creada(client, "oferta-2", items=[("PARAMEDICO", 4)], convocatoria="conv-2")
+
+    resultado = client.post(f"{EMERGENCIA}/liberacion", json={}, headers=headers()).json
+
+    assert resultado["reservas_vigentes"] == 1
+    assert [c["estado"] for c in resultado["compromisos"]] == ["FINALIZADO", "RESERVADO"]
+    assert contadores("PARAMEDICO") == (12, 6, 0)
+
+
+def test_el_cierre_exige_que_no_quede_nada_comprometido(client):
+    compromiso = comprometido(client)
+
+    respuesta = client.post(f"{EMERGENCIA}/cierre", json={}, headers=headers(RolSistema.BONITA))
+
+    assert (respuesta.status_code, respuesta.json["codigo"]) == (409, "RECURSOS_SIN_LIBERAR")
+    assert respuesta.json["detalles"]["compromisos"] == [
+        {
+            "id": compromiso["id"],
+            "oferta_referencia": "oferta-1",
+            "ong_cuit": RIO,
+            "pendiente": {"PARAMEDICO": "5.00"},
+        }
+    ]
+    assert client.get(f"{EMERGENCIA}/liberacion", headers=headers()).json["cerrado"] is False
+
+
+def test_cerrar_el_proyecto_y_reintentar(client):
+    comprometido(client)
+    informada(client, actividad(cantidad=5))
+
+    primero = client.post(
+        f"{EMERGENCIA}/cierre", json={"observaciones": "Fin"}, headers=headers(RolSistema.BONITA)
+    )
+    assert primero.status_code == 201, primero.json
+    assert (primero.json["emergencia_referencia"], primero.json["cerrado_por"]) == (
+        "emergencia-1",
+        "tests",
+    )
+
+    repetido = client.post(f"{EMERGENCIA}/cierre", json={}, headers=headers())
+    assert repetido.status_code == 200
+    assert repetido.json["fecha_cierre"] == primero.json["fecha_cierre"]
+
+    estado = client.get(f"{EMERGENCIA}/liberacion", headers=headers()).json
+    assert (estado["cerrado"], estado["cierre"]["observaciones"]) == (True, "Fin")
+    # Un proyecto cerrado no recibe más actividades ni liberaciones
+    respuesta = informar(client, actividad("ACT-2", cantidad=1))
+    assert (respuesta.status_code, respuesta.json["codigo"]) == (409, "PROYECTO_CERRADO")
+    respuesta = client.post(f"{EMERGENCIA}/liberacion", json={}, headers=headers())
+    assert (respuesta.status_code, respuesta.json["codigo"]) == (409, "PROYECTO_CERRADO")
+
+
+def test_liberacion_y_cierre_validan_fecha_rol_y_emergencia(client):
+    comprometido(client)
+    futura = {"fecha": (ahora() + timedelta(days=1)).isoformat()}
+    for url in (f"{EMERGENCIA}/liberacion", f"{EMERGENCIA}/cierre"):
+        assert client.post(url, json={}).status_code == 401
+        assert client.post(url, json={}, headers=headers(RolSistema.AUDITOR)).status_code == 403
+        respuesta = client.post(url, json=futura, headers=headers())
+        assert (respuesta.status_code, respuesta.json["codigo"]) == (422, "FECHA_FUTURA")
+    respuesta = client.post("/api/v1/emergencias/desconocida/cierre", json={}, headers=headers())
+    assert respuesta.status_code == 404
+    assert contadores("PARAMEDICO") == (12, 2, 5)

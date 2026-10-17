@@ -132,3 +132,71 @@ class ActividadSchema(Schema):
     item = fields.Nested(
         ItemLiberacionSchema, metadata={"description": "Cómo queda el ítem después de esta."}
     )
+
+
+# --- Liberación y cierre de la emergencia ----------------------------------------------------
+
+
+class CierreEntradaSchema(Schema):
+    """Cuerpo de la liberación y del cierre de la emergencia. Los dispara el sistema (Bonita o la
+    webapp), así que la fecha es opcional: si no viene, es el momento de la llamada."""
+
+    fecha = fields.AwareDateTime(
+        load_default=None,
+        allow_none=True,
+        default_timezone=UTC,
+        metadata={
+            "description": "Cuándo ocurrió (ISO-8601; sin zona horaria se toma como UTC). No "
+            "puede ser futura. Si falta, es ahora.",
+            "example": "2026-10-25T18:00:00-03:00",
+        },
+    )
+    observaciones = fields.Str(
+        load_default=None, allow_none=True, validate=validate.Length(max=2000)
+    )
+
+
+class CierreProyectoSchema(Schema):
+    emergencia_referencia = fields.Str()
+    fecha_cierre = fields.DateTime()
+    observaciones = fields.Str(allow_none=True)
+    cerrado_por = fields.Str()
+    creado_en = fields.DateTime()
+
+
+class CompromisoLiberacionSchema(Schema):
+    id = fields.Int()
+    oferta_referencia = fields.Str()
+    ong = fields.Nested(OngRefSchema)
+    estado = fields.Str(metadata={"enum": list(EstadoCompromiso)})
+    finalizado_en = fields.DateTime(allow_none=True)
+    items = fields.List(fields.Nested(ItemLiberacionSchema))
+
+
+class EstadoEmergenciaSchema(Schema):
+    emergencia_referencia = fields.Str()
+    todo_liberado = fields.Bool(
+        metadata={
+            "description": "No queda nada comprometido en ejecución. Es lo que Bonita necesita "
+            "para *Finalizaron todas las tareas?*."
+        }
+    )
+    cerrado = fields.Bool()
+    cierre = fields.Nested(CierreProyectoSchema, allow_none=True)
+    reservas_vigentes = fields.Int(
+        metadata={
+            "description": "Reservas sin adjudicar que siguen RESERVADO. La liberación no las "
+            "toca: vencen por fecha (I-3.4)."
+        }
+    )
+    compromisos = fields.List(fields.Nested(CompromisoLiberacionSchema))
+
+
+class LiberacionEmergenciaSchema(EstadoEmergenciaSchema):
+    liberaciones = fields.List(
+        fields.Nested(ActividadSchema),
+        metadata={
+            "description": "Lo que liberó esta llamada, con origen CIERRE. Vacío si no quedaba "
+            "nada pendiente."
+        },
+    )

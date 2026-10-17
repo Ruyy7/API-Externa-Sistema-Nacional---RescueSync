@@ -13,6 +13,10 @@ from app.schemas.liberaciones import (
     ActividadEntradaSchema,
     ActividadFiltrosSchema,
     ActividadSchema,
+    CierreEntradaSchema,
+    CierreProyectoSchema,
+    EstadoEmergenciaSchema,
+    LiberacionEmergenciaSchema,
 )
 from app.security import SEGURIDAD, RolSistema, roles_required
 from app.services import servicios
@@ -91,3 +95,57 @@ class ActividadPorId(MethodView):
     def get(self, actividad_id):
         """Detalle de una actividad"""
         return servicios().liberaciones.obtener_actividad(actividad_id)
+
+
+@bp.route("/emergencias/<string:referencia>/liberacion")
+class LiberacionDeEmergencia(MethodView):
+    @roles_required(WEBAPP, BONITA, AUDITOR)
+    @bp.doc(security=SEGURIDAD)
+    @bp.response(200, EstadoEmergenciaSchema)
+    @_errores(401, 403, 404)
+    def get(self, referencia):
+        """Qué queda por liberar en la emergencia
+
+        Bonita lo consulta desde *Monitorear recursos* para decidir *Finalizaron todas las
+        tareas?* (`todo_liberado`); el coordinador y el auditor, para seguir el despliegue. La
+        referencia es el id de la emergencia en la webapp (`emergenciaId` en Bonita).
+        """
+        return servicios().liberaciones.estado_de_emergencia(referencia)
+
+    @roles_required(WEBAPP, BONITA)
+    @bp.doc(security=SEGURIDAD)
+    @bp.arguments(CierreEntradaSchema)
+    @bp.response(200, LiberacionEmergenciaSchema)
+    @_errores(401, 403, 404, 409, 422)
+    def post(self, datos, referencia):
+        """Libera todo lo que siga comprometido en la emergencia
+
+        Es la tarea *Liberar recursos* del proceso: lo que las ONGs no informaron se libera
+        igual (reutilizables al stock, consumibles de baja) y sus compromisos pasan a FINALIZADO.
+        Es idempotente: si no queda nada pendiente, no cambia nada. Las reservas sin adjudicar
+        no se tocan.
+        """
+        return servicios().liberaciones.liberar_emergencia(referencia, datos, get_jwt_identity())
+
+
+@bp.route("/emergencias/<string:referencia>/cierre")
+class CierreDeEmergencia(MethodView):
+    @roles_required(WEBAPP, BONITA)
+    @bp.doc(security=SEGURIDAD)
+    @bp.arguments(CierreEntradaSchema)
+    @bp.response(201, CierreProyectoSchema)
+    @bp.alt_response(
+        200, schema=CierreProyectoSchema, description="Reintento: el proyecto ya estaba cerrado."
+    )
+    @_errores(401, 403, 404, 409, 422)
+    def post(self, datos, referencia):
+        """Cierra el proyecto de la emergencia
+
+        Es la tarea *Cerrar proyecto* del proceso. Solo se cierra cuando no queda nada
+        comprometido; si queda, responde 409 RECURSOS_SIN_LIBERAR con el detalle. Después del
+        cierre no se aceptan más actividades ni liberaciones para la emergencia.
+        """
+        cierre, es_nuevo = servicios().liberaciones.cerrar_proyecto(
+            referencia, datos, get_jwt_identity()
+        )
+        return cierre, 201 if es_nuevo else 200

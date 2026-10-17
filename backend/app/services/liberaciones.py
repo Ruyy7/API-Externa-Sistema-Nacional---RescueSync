@@ -17,12 +17,15 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from sqlalchemy.exc import IntegrityError
+
 from app.errors import Conflicto, NoEncontrado, ReglaDeNegocio, TransicionInvalida
 from app.extensions import db
 from app.models import (
     ONG,
     AccionLiberacion,
     Actividad,
+    CierreProyecto,
     Compromiso,
     CompromisoItem,
     EstadoCompromiso,
@@ -120,6 +123,113 @@ class LiberacionService:
         self._registrar("Actividad registrada", actividad)
         return actividad, True
 
+    # --- Liberación y cierre de la emergencia --------------------------------------------------
+
+    def estado_de_emergencia(self, emergencia: str) -> dict:
+        """Qué queda por liberar en la emergencia. Bonita lo consulta desde *Monitorear recursos*
+        para decidir *Finalizaron todas las tareas?*; el coordinador y el auditor, para seguir el
+        despliegue."""
+        self._exigir_emergencia(emergencia)
+        return self._estado(emergencia)
+
+    def liberar_emergencia(self, emergencia: str, datos: dict, autor: str) -> dict:
+        """*Liberar recursos*: libera lo que siga comprometido en la emergencia y finaliza esos
+        compromisos. Lo que la ONG no informó se libera igual, con origen CIERRE.
+
+        Es idempotente: si no queda nada pendiente, no cambia nada. Las reservas sin adjudicar no
+        se tocan (son del punto 4 y vencen por fecha); se informan en `reservas_vigentes`.
+        """
+        self._exigir_emergencia(emergencia)
+        fecha = self._fecha_o_ahora(datos)
+        self._exigir_proyecto_abierto(emergencia)
+
+        self._iniciar_transaccion()
+        # Mismo orden que I-3.4: primero los compromisos (por id) y después el inventario (por id)
+        comprometidos = self.liberaciones.compromisos_de_emergencia(
+            emergencia, estados=[EstadoCompromiso.COMPROMETIDO], bloquear_filas=True
+        )
+        pendientes = [
+            item for c in comprometidos for item in c.items if item.cantidad_pendiente > 0
+        ]
+        inventarios = self.inventario.bloquear_por_ids(
+            {item.inventario_recurso_id for item in pendientes}
+        )
+        liberaciones = [
+            self._liberar(
+                item,
+                inventarios[item.inventario_recurso_id],
+                item.cantidad_pendiente,
+                origen=OrigenActividad.CIERRE,
+                referencia=None,
+                fecha=fecha,
+                observaciones=datos.get("observaciones"),
+                autor=autor,
+            )
+            for item in pendientes
+        ]
+        for compromiso in comprometidos:
+            compromiso.transicionar(EstadoCompromiso.FINALIZADO)
+        db.session.commit()
+        log.info(
+            "Recursos de la emergencia liberados",
+            extra={
+                "contexto": {
+                    "emergencia": emergencia,
+                    "liberaciones": len(liberaciones),
+                    "compromisos_finalizados": [c.id for c in comprometidos],
+                }
+            },
+        )
+        return self._estado(emergencia) | {"liberaciones": liberaciones}
+
+    def cerrar_proyecto(
+        self, emergencia: str, datos: dict, autor: str
+    ) -> tuple[CierreProyecto, bool]:
+        """*Cerrar proyecto*: registra el cierre si no queda nada comprometido. Devuelve
+        (cierre, es_nuevo); repetirlo devuelve el cierre existente."""
+        self._exigir_emergencia(emergencia)
+        fecha = self._fecha_o_ahora(datos)
+        if (cierre := self.liberaciones.cierre_de(emergencia)) is not None:
+            return cierre, False
+
+        self._iniciar_transaccion()
+        # Bloquea también las reservas: una adjudicación en curso termina antes de decidir, y así
+        # el cierre la ve como COMPROMETIDO y la rechaza
+        vigentes = self.liberaciones.compromisos_de_emergencia(
+            emergencia,
+            estados=[EstadoCompromiso.RESERVADO, EstadoCompromiso.COMPROMETIDO],
+            bloquear_filas=True,
+        )
+        if (cierre := self.liberaciones.cierre_de(emergencia)) is not None:
+            db.session.commit()  # otro cierre entró mientras esperábamos el bloqueo
+            return cierre, False
+        comprometidos = [c for c in vigentes if c.estado == EstadoCompromiso.COMPROMETIDO]
+        if comprometidos:
+            raise Conflicto(
+                "Quedan recursos comprometidos sin liberar: informá las actividades o liberá la "
+                "emergencia antes de cerrarla.",
+                codigo="RECURSOS_SIN_LIBERAR",
+                detalles={"compromisos": [self._pendiente_de(c) for c in comprometidos]},
+            )
+        cierre = CierreProyecto(
+            emergencia_referencia=emergencia,
+            fecha_cierre=fecha,
+            observaciones=datos.get("observaciones"),
+            cerrado_por=autor,
+        )
+        self.liberaciones.agregar(cierre)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # Dos cierres a la vez sin ninguna fila que los serialice: el UNIQUE frena al segundo
+            db.session.rollback()
+            return self.liberaciones.cierre_de(emergencia), False
+        log.info(
+            "Proyecto cerrado",
+            extra={"contexto": {"emergencia": emergencia, "reservas_vigentes": len(vigentes)}},
+        )
+        return cierre, True
+
     # --- Consultas -----------------------------------------------------------------------------
 
     def obtener_actividad(self, actividad_id: int) -> Actividad:
@@ -152,12 +262,58 @@ class LiberacionService:
                 "Hay campos con errores.",
                 detalles={"json": {"cantidad": ["Tiene que ser un número entero."]}},
             )
-        if es_fecha_futura(datos["fecha"], ahora()):
+        self._exigir_fecha(datos["fecha"])
+
+    @staticmethod
+    def _exigir_fecha(fecha: datetime) -> None:
+        if es_fecha_futura(fecha, ahora()):
             raise ReglaDeNegocio(
-                "La fecha de cumplimiento no puede ser futura.",
+                "La fecha no puede ser futura.",
                 codigo="FECHA_FUTURA",
-                detalles={"fecha": datos["fecha"].isoformat()},
+                detalles={"fecha": fecha.isoformat()},
             )
+
+    def _fecha_o_ahora(self, datos: dict) -> datetime:
+        """La liberación y el cierre los dispara el sistema: si no traen fecha, es ahora."""
+        fecha = datos.get("fecha")
+        if fecha is None:
+            return ahora()
+        self._exigir_fecha(fecha)
+        return fecha
+
+    def _exigir_emergencia(self, emergencia: str) -> None:
+        if not self.liberaciones.existe_emergencia(emergencia):
+            raise NoEncontrado(
+                "El Sistema Nacional no conoce esa emergencia: ninguna convocatoria la nombra.",
+                detalles={"emergencia_referencia": emergencia},
+            )
+
+    def _estado(self, emergencia: str) -> dict:
+        compromisos = self.liberaciones.compromisos_de_emergencia(emergencia)
+        cierre = self.liberaciones.cierre_de(emergencia)
+        return {
+            "emergencia_referencia": emergencia,
+            "todo_liberado": all(
+                c.estado != EstadoCompromiso.COMPROMETIDO or c.todo_liberado() for c in compromisos
+            ),
+            "cerrado": cierre is not None,
+            "cierre": cierre,
+            "reservas_vigentes": sum(c.estado == EstadoCompromiso.RESERVADO for c in compromisos),
+            "compromisos": compromisos,
+        }
+
+    @staticmethod
+    def _pendiente_de(compromiso: Compromiso) -> dict:
+        return {
+            "id": compromiso.id,
+            "oferta_referencia": compromiso.oferta_referencia,
+            "ong_cuit": compromiso.ong.cuit,
+            "pendiente": {
+                item.tipo_recurso.codigo: str(item.cantidad_pendiente)
+                for item in compromiso.items
+                if item.cantidad_pendiente > 0
+            },
+        }
 
     def _previa(self, datos: dict) -> Actividad | None:
         """La actividad ya registrada con esa referencia, si existe. Si existe pero con otros
