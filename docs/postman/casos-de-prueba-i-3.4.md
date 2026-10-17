@@ -1,6 +1,6 @@
 # Casos de prueba de I-3.4 en Postman
 
-Bloqueo y compromiso de recursos con locking en PostgreSQL. Todos los casos se generaron ejecutándolos contra la API: las respuestas de abajo son las reales. Las fechas y horas cambian en cada corrida y se muestran como `<fecha y hora>`.
+Bloqueo y compromiso de recursos con locking en PostgreSQL. Todos los casos se generaron ejecutándolos contra la API: las respuestas de abajo son las reales. Lo que cambia en cada corrida se muestra así: las fechas como `<fecha y hora>`, los ids de la ONG y de los compromisos como `<id>`, los tokens como `<token>`, y el CUIT, el email y el sufijo de las referencias con el nombre de su variable (`{{ong_cuit}}`, `{{ong_email}}` y `{{corrida}}`).
 
 Los recursos se bloquean en dos momentos:
 
@@ -11,105 +11,257 @@ Los recursos se bloquean en dos momentos:
 
 ## Preparación
 
-**1. Levantar la API y dejar los datos de demostración limpios.** En una terminal, en la carpeta del repo:
+**1. Importar la colección en Postman.** *Import* (arriba a la izquierda) → elegir `docs/postman/RescueSync-I-3.4.postman_collection.json` → *Import*.
+
+**2. Elegir contra qué API se prueba.** La variable `base_url` ya apunta a la API publicada en Render:
+
+```text
+https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1
+```
+
+Para probar en local, cambiarla a `http://localhost:5001/api/v1` y levantar la API con las cuentas de servicio creadas (las contraseñas salen de `CUENTA_WEBAPP_PASSWORD`, `CUENTA_BONITA_PASSWORD` y `CUENTA_AUDITOR_PASSWORD` del `.env`):
 
 ```bash
 docker compose up -d
-docker compose exec db psql -U sistema_nacional -d sistema_nacional -c "TRUNCATE compromiso_item, compromiso, convocatoria RESTART IDENTITY CASCADE;"
+docker compose exec api flask db upgrade
 docker compose exec api flask seed
+docker compose exec api flask cuentas-servicio
 ```
 
-Hay que repetir los dos últimos comandos cada vez que se quiera correr la colección desde cero: los casos dependen del orden.
+**3. Cargar las contraseñas de las cuentas de servicio.** Clic en la colección *RescueSync · Sistema Nacional · I-3.4…* → pestaña **Variables** → completar la columna *Current value* (o *Value*, según la versión) de `password_webapp`, `password_bonita` y `password_auditor` → guardar con **Ctrl+S**. Las contraseñas no están en el repositorio: en Render son las variables `CUENTA_*_PASSWORD` del servicio, y en local, las del `.env`.
 
-**2. Generar los tres tokens.** Cada comando imprime un token largo, válido por 8 horas:
-
-```bash
-docker compose exec api flask token-servicio SISTEMA_WEBAPP
-docker compose exec api flask token-servicio SISTEMA_BONITA
-docker compose exec api flask token-servicio AUDITOR
-```
-
-| Token | Representa a | Puede |
+| Cuenta | Rol del token | Puede |
 |---|---|---|
-| `SISTEMA_WEBAPP` | La webapp RescueSync | Verificar, reservar, ajustar, cancelar, adjudicar y cambiar fechas de convocatorias |
-| `SISTEMA_BONITA` | El proceso de Bonita | Verificar, adjudicar y cambiar fechas de convocatorias |
-| `AUDITOR` | El perfil Auditor / Directivo | Solo consultar |
+| `webapp` | `SISTEMA_WEBAPP` | Verificar, reservar, ajustar, cancelar, adjudicar y cambiar fechas de convocatorias |
+| `bonita` | `SISTEMA_BONITA` | Verificar, adjudicar y cambiar fechas de convocatorias |
+| `auditor` | `AUDITOR` | Solo consultar |
 
-**3. Importar la colección en Postman.** *Import* (arriba a la izquierda) → elegir `docs/postman/RescueSync-I-3.4.postman_collection.json` → *Import*.
-
-**4. Cargar los tokens.** Clic en la colección *RescueSync · Sistema Nacional · I-3.4…* → pestaña **Variables** → pegar cada token en la columna *Current value* (o *Value*, según la versión) de `token_webapp`, `token_bonita` y `token_auditor` → guardar con **Ctrl+S**. `base_url` ya viene cargada con `http://localhost:5001/api/v1`.
-
-No hace falta tocar la pestaña *Authorization* de cada pedido: ya está configurada como *Bearer Token* con la variable que corresponde. Las fechas (`{{cierre_futuro}}`, `{{limite_futuro}}`, `{{cierre_pasado}}` y `{{limite_pasado}}`) se calculan solas antes de cada pedido, relativas al día en que se prueba.
-
-**5. Ejecutar.**
-- **Uno por uno:** abrir cada pedido en orden y apretar **Send**. Abajo, la pestaña **Test Results** muestra en verde cada valor esperado que se cumplió.
+**4. Ejecutar.**
 - **Todos juntos:** clic derecho en la colección → **Run collection** → **Run**. El resumen muestra cuántas pruebas pasaron.
+- **Uno por uno:** abrir cada pedido en orden, empezando por la carpeta 0, y apretar **Send**. Abajo, la pestaña **Test Results** muestra en verde cada valor esperado que se cumplió.
 
-Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `compromiso_202`…) cuando se crean, y los pedidos siguientes los usan.
+No hace falta pegar tokens ni tocar la pestaña *Authorization* de cada pedido: los logins de la carpeta 0 guardan los tokens en `token_webapp`, `token_bonita` y `token_auditor`, y cada pedido ya está configurado como *Bearer Token* con el que corresponde. Los ids de la ONG y de los compromisos también se guardan solos (`ong_id`, `compromiso_101`, `compromiso_202`…) y los pedidos siguientes los usan.
 
-**Inventario de partida** de Rescatistas del Río (CUIT `30-11111111-1`), como bloqueada / comprometida / disponible:
-- `PARAMEDICO`: 2 / 0 / 10
-- `RESCATISTA`: 3 / 2 / 15
-- `FRAZADA`: 20 / 30 / 250
+**Se puede repetir sin limpiar la base.** Cada corrida registra su propia ONG, *Rescatistas de Prueba (Postman I-3.4)*, con un CUIT válido y un email nuevos, y agrega a las referencias de ofertas, convocatorias y emergencias un sufijo propio (`{{corrida}}`, por ejemplo `OF-101-{{corrida}}`). Así las cuentas del inventario dan siempre lo mismo, sin importar qué haya en la base. Las fechas (`{{cierre_futuro}}`, `{{limite_futuro}}`, `{{cierre_pasado}}` y `{{limite_pasado}}`) se calculan solas antes de cada pedido, relativas al día en que se prueba.
+
+**Inventario de partida** de la ONG de prueba, como bloqueada / comprometida / disponible:
+- `PARAMEDICO`: 0 / 0 / 10
+- `RESCATISTA`: 0 / 0 / 15
+- `FRAZADA`: 0 / 0 / 250
 - `RACION_ALIMENTO`: no está inscripta
+
+Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pendiente de habilitación que cargan los datos de demostración, porque el registro de I-3.1 deja a las ONGs habilitadas en el acto.
 
 **Concurrencia.** No se puede probar con Postman, porque hacen falta pedidos realmente simultáneos. Se prueba con los tests automáticos: `docker compose run --rm api pytest tests/test_concurrencia.py -v` (5 pruebas, incluida una donde dos reservas compiten por la misma fila).
 
 
-## 0. Preparación
+## 0. Preparación: login y ONG de prueba
 
-### 0.1 Obtener el id de Rescatistas del Río
+### 0.1 Login de la cuenta webapp
 
-- **Pedido:** `GET {{base_url}}/ongs?habilitada=true`
+- **Pedido:** `POST {{base_url}}/login`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
-- **Qué hace el endpoint:** Lista las ONGs registradas (punto I-3.2). Con `habilitada=true` devuelve solo las habilitadas. Lo usamos para obtener el id de Rescatistas del Río.
-- **Qué prueba este caso:** Guarda en la variable `ong_rio_id` el id de la ONG con CUIT 30-11111111-1.
+- **Qué hace el endpoint:** Inicio de sesión (punto I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.
+- **Qué prueba este caso:** Guarda el token en `token_webapp`. Si responde 401, falta la contraseña en la variable `password_webapp` o no es la correcta.
 
-**Respuesta esperada: `200 OK`**
+**Body** (pestaña *Body* → *raw* → *JSON*):
 
 ```json
-[
-  {
-    "actualizado_en": "<fecha y hora>",
-    "creado_en": "<fecha y hora>",
-    "cuit": "30-22222222-2",
-    "email_contacto": null,
-    "estado": "HABILITADA",
-    "habilitada": true,
-    "id": 2,
-    "razon_social": "Alimentos Solidarios",
-    "telefono": null
-  },
-  {
-    "actualizado_en": "<fecha y hora>",
-    "creado_en": "<fecha y hora>",
-    "cuit": "30-11111111-1",
-    "email_contacto": null,
-    "estado": "HABILITADA",
-    "habilitada": true,
-    "id": 1,
-    "razon_social": "Rescatistas del Río",
-    "telefono": null
-  }
-]
+{
+  "usuario": "webapp",
+  "password": "{{password_webapp}}"
+}
 ```
 
-### 0.2 Inventario inicial de Rescatistas del Río
+**Respuesta esperada: `200 OK`**
 
-- **Pedido:** `GET {{base_url}}/ongs/{{ong_rio_id}}/recursos`
+```json
+{
+  "access_token": "<token>",
+  "expira_en_segundos": 28800,
+  "rol": "SISTEMA_WEBAPP",
+  "token_type": "Bearer"
+}
+```
+
+### 0.2 Login de la cuenta bonita
+
+- **Pedido:** `POST {{base_url}}/login`
+- **Token (pestaña Authorization):** ninguno (*No Auth*)
+- **Qué hace el endpoint:** Inicio de sesión (punto I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.
+- **Qué prueba este caso:** Guarda el token en `token_bonita`. Si responde 401, falta la contraseña en la variable `password_bonita` o no es la correcta.
+
+**Body** (pestaña *Body* → *raw* → *JSON*):
+
+```json
+{
+  "usuario": "bonita",
+  "password": "{{password_bonita}}"
+}
+```
+
+**Respuesta esperada: `200 OK`**
+
+```json
+{
+  "access_token": "<token>",
+  "expira_en_segundos": 28800,
+  "rol": "SISTEMA_BONITA",
+  "token_type": "Bearer"
+}
+```
+
+### 0.3 Login de la cuenta auditor
+
+- **Pedido:** `POST {{base_url}}/login`
+- **Token (pestaña Authorization):** ninguno (*No Auth*)
+- **Qué hace el endpoint:** Inicio de sesión (punto I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.
+- **Qué prueba este caso:** Guarda el token en `token_auditor`. Si responde 401, falta la contraseña en la variable `password_auditor` o no es la correcta.
+
+**Body** (pestaña *Body* → *raw* → *JSON*):
+
+```json
+{
+  "usuario": "auditor",
+  "password": "{{password_auditor}}"
+}
+```
+
+**Respuesta esperada: `200 OK`**
+
+```json
+{
+  "access_token": "<token>",
+  "expira_en_segundos": 28800,
+  "rol": "AUDITOR",
+  "token_type": "Bearer"
+}
+```
+
+### 0.4 Registrar la ONG de prueba de esta corrida
+
+- **Pedido:** `POST {{base_url}}/ongs`
+- **Token (pestaña Authorization):** ninguno (*No Auth*)
+- **Qué hace el endpoint:** Registro directo de una ONG (punto I-3.1): queda `HABILITADA` en el acto y cada categoría es una fila de su inventario, con el máximo como total. No pide token.
+- **Qué prueba este caso:** Cada corrida registra una ONG nueva, con un CUIT válido y un email que se generan solos (`ong_cuit` y `ong_email`), así las cuentas del inventario siempre dan lo mismo. Se inscribe en tres categorías: 10 paramédicos, 15 rescatistas y 250 frazadas. No se inscribe en RACION_ALIMENTO. Guarda el id en `ong_id`.
+
+**Body** (pestaña *Body* → *raw* → *JSON*):
+
+```json
+{
+  "razon_social": "Rescatistas de Prueba (Postman I-3.4)",
+  "cuit": "{{ong_cuit}}",
+  "email_contacto": "{{ong_email}}",
+  "telefono": "221 555-0134",
+  "password": "{{password_ong}}",
+  "categorias": [
+    {
+      "tipo_recurso": "PARAMEDICO",
+      "cantidad_maxima": 10
+    },
+    {
+      "tipo_recurso": "RESCATISTA",
+      "cantidad_maxima": 15
+    },
+    {
+      "tipo_recurso": "FRAZADA",
+      "cantidad_maxima": 250
+    }
+  ]
+}
+```
+
+**Respuesta esperada: `201 CREATED`**
+
+```json
+{
+  "actualizado_en": "<fecha y hora>",
+  "categorias": [
+    {
+      "cantidad_bloqueada": "0.00",
+      "cantidad_comprometida": "0.00",
+      "cantidad_disponible": "10.00",
+      "cantidad_total": "10.00",
+      "tipo_recurso": {
+        "categoria": "PERSONAL",
+        "codigo": "PARAMEDICO",
+        "id": 1,
+        "nombre": "Paramédico",
+        "reutilizable": true,
+        "unidad_medida": {
+          "admite_decimales": false,
+          "codigo": "PERSONA",
+          "id": 1,
+          "nombre": "Personas"
+        }
+      }
+    },
+    {
+      "cantidad_bloqueada": "0.00",
+      "cantidad_comprometida": "0.00",
+      "cantidad_disponible": "15.00",
+      "cantidad_total": "15.00",
+      "tipo_recurso": {
+        "categoria": "PERSONAL",
+        "codigo": "RESCATISTA",
+        "id": 5,
+        "nombre": "Rescatista",
+        "reutilizable": true,
+        "unidad_medida": {
+          "admite_decimales": false,
+          "codigo": "PERSONA",
+          "id": 1,
+          "nombre": "Personas"
+        }
+      }
+    },
+    {
+      "cantidad_bloqueada": "0.00",
+      "cantidad_comprometida": "0.00",
+      "cantidad_disponible": "250.00",
+      "cantidad_total": "250.00",
+      "tipo_recurso": {
+        "categoria": "MATERIAL",
+        "codigo": "FRAZADA",
+        "id": 12,
+        "nombre": "Frazada",
+        "reutilizable": true,
+        "unidad_medida": {
+          "admite_decimales": false,
+          "codigo": "UNIDAD",
+          "id": 6,
+          "nombre": "Unidades"
+        }
+      }
+    }
+  ],
+  "creado_en": "<fecha y hora>",
+  "cuit": "{{ong_cuit}}",
+  "email_contacto": "{{ong_email}}",
+  "estado": "HABILITADA",
+  "habilitada": true,
+  "id": "<id>",
+  "razon_social": "Rescatistas de Prueba (Postman I-3.4)",
+  "telefono": "221 555-0134"
+}
+```
+
+### 0.5 Inventario inicial de la ONG de prueba
+
+- **Pedido:** `GET {{base_url}}/ongs/{{ong_id}}/recursos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
 - **Qué hace el endpoint:** Inventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.
-- **Qué prueba este caso:** Punto de partida: 10 paramédicos, 15 rescatistas y 250 frazadas disponibles. No está inscripta en RACION_ALIMENTO.
+- **Qué prueba este caso:** Punto de partida: nada bloqueado ni comprometido.
 
 **Respuesta esperada: `200 OK`**
 
 ```json
 [
   {
-    "cantidad_bloqueada": "20.00",
-    "cantidad_comprometida": "30.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "250.00",
-    "cantidad_total": "300.00",
+    "cantidad_total": "250.00",
     "tipo_recurso": {
       "categoria": "MATERIAL",
       "codigo": "FRAZADA",
@@ -125,10 +277,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "2.00",
+    "cantidad_bloqueada": "0.00",
     "cantidad_comprometida": "0.00",
     "cantidad_disponible": "10.00",
-    "cantidad_total": "12.00",
+    "cantidad_total": "10.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "PARAMEDICO",
@@ -144,10 +296,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "3.00",
-    "cantidad_comprometida": "2.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "15.00",
-    "cantidad_total": "20.00",
+    "cantidad_total": "15.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "RESCATISTA",
@@ -179,7 +331,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "ong_cuit": "30-11111111-1",
+  "ong_cuit": "{{ong_cuit}}",
   "items": [
     {
       "tipo_recurso": "PARAMEDICO",
@@ -221,7 +373,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       "tipo_recurso": "RACION_ALIMENTO"
     }
   ],
-  "ong_cuit": "30-11111111-1",
+  "ong_cuit": "{{ong_cuit}}",
   "ong_habilitada": true,
   "se_puede_reservar": false
 }
@@ -232,7 +384,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 - **Pedido:** `POST {{base_url}}/compromisos/verificacion`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** Valida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).
-- **Qué prueba este caso:** La verificación informa que la ONG no está habilitada (no es un error).
+- **Qué prueba este caso:** Usa Ayuda en Registro (CUIT 30-33333333-3), que los datos de demostración cargan como pendiente. La verificación informa que la ONG no está habilitada (no es un error).
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -312,7 +464,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "ong_cuit": "30-11111111-1",
+  "ong_cuit": "{{ong_cuit}}",
   "items": [
     {
       "tipo_recurso": "DRON",
@@ -344,7 +496,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 1.5 El inventario no cambió
 
-- **Pedido:** `GET {{base_url}}/ongs/{{ong_rio_id}}/recursos`
+- **Pedido:** `GET {{base_url}}/ongs/{{ong_id}}/recursos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
 - **Qué hace el endpoint:** Inventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.
 - **Qué prueba este caso:** La verificación no bloquea: el inventario sigue igual.
@@ -354,10 +506,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 ```json
 [
   {
-    "cantidad_bloqueada": "20.00",
-    "cantidad_comprometida": "30.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "250.00",
-    "cantidad_total": "300.00",
+    "cantidad_total": "250.00",
     "tipo_recurso": {
       "categoria": "MATERIAL",
       "codigo": "FRAZADA",
@@ -373,10 +525,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "2.00",
+    "cantidad_bloqueada": "0.00",
     "cantidad_comprometida": "0.00",
     "cantidad_disponible": "10.00",
-    "cantidad_total": "12.00",
+    "cantidad_total": "10.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "PARAMEDICO",
@@ -392,10 +544,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "3.00",
-    "cantidad_comprometida": "2.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "15.00",
-    "cantidad_total": "20.00",
+    "cantidad_total": "15.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "RESCATISTA",
@@ -427,11 +579,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "101",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-101-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-1",
-    "emergencia_referencia": "emg-1",
+    "referencia": "CONV-1-{{corrida}}",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -455,16 +607,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-1",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-1"
+    "referencia": "CONV-1-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "RESERVADO",
   "finalizado_en": null,
-  "id": 1,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -483,11 +635,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "101",
+  "oferta_referencia": "OF-101-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -495,20 +647,20 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 2.2 Inventario después de reservar
 
-- **Pedido:** `GET {{base_url}}/ongs/{{ong_rio_id}}/recursos`
+- **Pedido:** `GET {{base_url}}/ongs/{{ong_id}}/recursos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
 - **Qué hace el endpoint:** Inventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.
-- **Qué prueba este caso:** Los paramédicos bloqueados pasan de 2 a 10: quedan 2 disponibles.
+- **Qué prueba este caso:** Los paramédicos bloqueados pasan de 0 a 8: quedan 2 disponibles.
 
 **Respuesta esperada: `200 OK`**
 
 ```json
 [
   {
-    "cantidad_bloqueada": "20.00",
-    "cantidad_comprometida": "30.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "250.00",
-    "cantidad_total": "300.00",
+    "cantidad_total": "250.00",
     "tipo_recurso": {
       "categoria": "MATERIAL",
       "codigo": "FRAZADA",
@@ -524,10 +676,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "10.00",
+    "cantidad_bloqueada": "8.00",
     "cantidad_comprometida": "0.00",
     "cantidad_disponible": "2.00",
-    "cantidad_total": "12.00",
+    "cantidad_total": "10.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "PARAMEDICO",
@@ -543,10 +695,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "7.00",
-    "cantidad_comprometida": "2.00",
+    "cantidad_bloqueada": "4.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "11.00",
-    "cantidad_total": "20.00",
+    "cantidad_total": "15.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "RESCATISTA",
@@ -575,11 +727,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "101",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-101-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-1",
-    "emergencia_referencia": "emg-1",
+    "referencia": "CONV-1-{{corrida}}",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -603,16 +755,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-1",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-1"
+    "referencia": "CONV-1-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "RESERVADO",
   "finalizado_en": null,
-  "id": 1,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -631,11 +783,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "101",
+  "oferta_referencia": "OF-101-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -652,11 +804,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "101",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-101-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-1",
-    "emergencia_referencia": "emg-1",
+    "referencia": "CONV-1-{{corrida}}",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -693,11 +845,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "202",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-202-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-2",
-    "emergencia_referencia": "emg-2",
+    "referencia": "CONV-2-{{corrida}}",
+    "emergencia_referencia": "EMG-2-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -733,16 +885,17 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 - **Pedido:** `POST {{base_url}}/compromisos`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Qué prueba este caso:** Ayuda en Registro, la ONG pendiente de los datos de demostración.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
 ```json
 {
-  "oferta_referencia": "301",
+  "oferta_referencia": "OF-301-{{corrida}}",
   "ong_cuit": "30-33333333-3",
   "convocatoria": {
-    "referencia": "conv-9",
-    "emergencia_referencia": "emg-9",
+    "referencia": "CONV-9-{{corrida}}",
+    "emergencia_referencia": "EMG-9-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -777,11 +930,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "302",
+  "oferta_referencia": "OF-302-{{corrida}}",
   "ong_cuit": "30-99999999-9",
   "convocatoria": {
-    "referencia": "conv-9",
-    "emergencia_referencia": "emg-9",
+    "referencia": "CONV-9-{{corrida}}",
+    "emergencia_referencia": "EMG-9-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -821,11 +974,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "303",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-303-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-9",
-    "emergencia_referencia": "emg-9",
+    "referencia": "CONV-9-{{corrida}}",
+    "emergencia_referencia": "EMG-9-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -868,11 +1021,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "304",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-304-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-8",
-    "emergencia_referencia": "emg-8",
+    "referencia": "CONV-8-{{corrida}}",
+    "emergencia_referencia": "EMG-8-{{corrida}}",
     "fecha_cierre": "{{cierre_pasado}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -908,11 +1061,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "305",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-305-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-9",
-    "emergencia_referencia": "emg-9",
+    "referencia": "CONV-9-{{corrida}}",
+    "emergencia_referencia": "EMG-9-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -953,8 +1106,8 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "306",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-306-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "items": [
     {
       "tipo_recurso": "PARAMEDICO",
@@ -990,11 +1143,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "307",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-307-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-9",
-    "emergencia_referencia": "emg-9",
+    "referencia": "CONV-9-{{corrida}}",
+    "emergencia_referencia": "EMG-9-{{corrida}}",
     "fecha_cierre": "{{limite_futuro}}",
     "fecha_limite_adjudicacion": "{{cierre_futuro}}"
   },
@@ -1059,16 +1212,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-1",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-1"
+    "referencia": "CONV-1-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "RESERVADO",
   "finalizado_en": null,
-  "id": 1,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -1087,11 +1240,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "101",
+  "oferta_referencia": "OF-101-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -1099,7 +1252,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 3.2 Inventario después de modificar
 
-- **Pedido:** `GET {{base_url}}/ongs/{{ong_rio_id}}/recursos`
+- **Pedido:** `GET {{base_url}}/ongs/{{ong_id}}/recursos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
 - **Qué hace el endpoint:** Inventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.
 - **Qué prueba este caso:** Se liberaron 2 paramédicos y los 4 rescatistas; se bloquearon 50 frazadas.
@@ -1109,10 +1262,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 ```json
 [
   {
-    "cantidad_bloqueada": "70.00",
-    "cantidad_comprometida": "30.00",
+    "cantidad_bloqueada": "50.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "200.00",
-    "cantidad_total": "300.00",
+    "cantidad_total": "250.00",
     "tipo_recurso": {
       "categoria": "MATERIAL",
       "codigo": "FRAZADA",
@@ -1128,10 +1281,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "8.00",
+    "cantidad_bloqueada": "6.00",
     "cantidad_comprometida": "0.00",
     "cantidad_disponible": "4.00",
-    "cantidad_total": "12.00",
+    "cantidad_total": "10.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "PARAMEDICO",
@@ -1147,10 +1300,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "3.00",
-    "cantidad_comprometida": "2.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "15.00",
-    "cantidad_total": "20.00",
+    "cantidad_total": "15.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "RESCATISTA",
@@ -1217,11 +1370,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "202",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-202-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-2",
-    "emergencia_referencia": "emg-2",
+    "referencia": "CONV-2-{{corrida}}",
+    "emergencia_referencia": "EMG-2-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -1241,16 +1394,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-2",
+    "emergencia_referencia": "EMG-2-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-2"
+    "referencia": "CONV-2-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "RESERVADO",
   "finalizado_en": null,
-  "id": 2,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -1261,11 +1414,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "202",
+  "oferta_referencia": "OF-202-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -1284,16 +1437,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": "<fecha y hora>",
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-2",
+    "emergencia_referencia": "EMG-2-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-2"
+    "referencia": "CONV-2-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "CANCELADO",
   "finalizado_en": null,
-  "id": 2,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -1304,11 +1457,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "202",
+  "oferta_referencia": "OF-202-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -1328,16 +1481,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": "<fecha y hora>",
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-2",
+    "emergencia_referencia": "EMG-2-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-2"
+    "referencia": "CONV-2-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "CANCELADO",
   "finalizado_en": null,
-  "id": 2,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -1348,11 +1501,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "202",
+  "oferta_referencia": "OF-202-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -1360,7 +1513,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 3.7 Inventario después de retirar la oferta 202
 
-- **Pedido:** `GET {{base_url}}/ongs/{{ong_rio_id}}/recursos`
+- **Pedido:** `GET {{base_url}}/ongs/{{ong_id}}/recursos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
 - **Qué hace el endpoint:** Inventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.
 - **Qué prueba este caso:** Los 4 paramédicos de la oferta 202 volvieron a estar disponibles.
@@ -1370,10 +1523,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 ```json
 [
   {
-    "cantidad_bloqueada": "70.00",
-    "cantidad_comprometida": "30.00",
+    "cantidad_bloqueada": "50.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "200.00",
-    "cantidad_total": "300.00",
+    "cantidad_total": "250.00",
     "tipo_recurso": {
       "categoria": "MATERIAL",
       "codigo": "FRAZADA",
@@ -1389,10 +1542,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "8.00",
+    "cantidad_bloqueada": "6.00",
     "cantidad_comprometida": "0.00",
     "cantidad_disponible": "4.00",
-    "cantidad_total": "12.00",
+    "cantidad_total": "10.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "PARAMEDICO",
@@ -1408,10 +1561,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "3.00",
-    "cantidad_comprometida": "2.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "15.00",
-    "cantidad_total": "20.00",
+    "cantidad_total": "15.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "RESCATISTA",
@@ -1461,9 +1614,9 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ## 4. Adjudicación: compromiso de los recursos
 
-### 4.1 Ofertas de la convocatoria conv-1 (lo que ve quien adjudica)
+### 4.1 Ofertas de la convocatoria 1 (lo que ve quien adjudica)
 
-- **Pedido:** `GET {{base_url}}/compromisos?convocatoria=conv-1`
+- **Pedido:** `GET {{base_url}}/compromisos?convocatoria=CONV-1-{{corrida}}`
 - **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Lista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`.
 
@@ -1475,16 +1628,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": null,
     "confirmado_en": null,
     "convocatoria": {
-      "emergencia_referencia": "emg-1",
+      "emergencia_referencia": "EMG-1-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-1"
+      "referencia": "CONV-1-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "RESERVADO",
     "finalizado_en": null,
-    "id": 1,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "0.00",
@@ -1503,11 +1656,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "101",
+    "oferta_referencia": "OF-101-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": null
   }
@@ -1678,16 +1831,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": "<fecha y hora>",
   "convocatoria": {
-    "emergencia_referencia": "emg-1",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-1"
+    "referencia": "CONV-1-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "COMPROMETIDO",
   "finalizado_en": null,
-  "id": 1,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "5.00",
@@ -1706,11 +1859,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "101",
+  "oferta_referencia": "OF-101-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -1718,7 +1871,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 4.7 Inventario después de adjudicar
 
-- **Pedido:** `GET {{base_url}}/ongs/{{ong_rio_id}}/recursos`
+- **Pedido:** `GET {{base_url}}/ongs/{{ong_id}}/recursos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
 - **Qué hace el endpoint:** Inventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.
 - **Qué prueba este caso:** 5 paramédicos pasan de bloqueados a comprometidos y el sexto se libera. Las 50 frazadas no adjudicadas vuelven a estar disponibles.
@@ -1728,10 +1881,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 ```json
 [
   {
-    "cantidad_bloqueada": "20.00",
-    "cantidad_comprometida": "30.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "250.00",
-    "cantidad_total": "300.00",
+    "cantidad_total": "250.00",
     "tipo_recurso": {
       "categoria": "MATERIAL",
       "codigo": "FRAZADA",
@@ -1747,10 +1900,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "2.00",
+    "cantidad_bloqueada": "0.00",
     "cantidad_comprometida": "5.00",
     "cantidad_disponible": "5.00",
-    "cantidad_total": "12.00",
+    "cantidad_total": "10.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "PARAMEDICO",
@@ -1766,10 +1919,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "3.00",
-    "cantidad_comprometida": "2.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "15.00",
-    "cantidad_total": "20.00",
+    "cantidad_total": "15.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "RESCATISTA",
@@ -1814,16 +1967,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": "<fecha y hora>",
   "convocatoria": {
-    "emergencia_referencia": "emg-1",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-1"
+    "referencia": "CONV-1-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "COMPROMETIDO",
   "finalizado_en": null,
-  "id": 1,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "5.00",
@@ -1842,11 +1995,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "101",
+  "oferta_referencia": "OF-101-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -1937,7 +2090,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ## 5. Ventana de adjudicación y vencimiento
 
-### 5.1 Oferta 404: reservar 1 rescatista en conv-4
+### 5.1 Oferta 404: reservar 1 rescatista en la convocatoria 4
 
 - **Pedido:** `POST {{base_url}}/compromisos`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
@@ -1947,11 +2100,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "404",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-404-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-4",
-    "emergencia_referencia": "emg-4",
+    "referencia": "CONV-4-{{corrida}}",
+    "emergencia_referencia": "EMG-4-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -1971,16 +2124,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-4",
+    "emergencia_referencia": "EMG-4-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-4"
+    "referencia": "CONV-4-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "RESERVADO",
   "finalizado_en": null,
-  "id": 3,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -1991,19 +2144,19 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "404",
+  "oferta_referencia": "OF-404-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
 ```
 
-### 5.2 Cierra la ventana de ofertas de conv-4 (la de adjudicación sigue abierta)
+### 5.2 Cierra la ventana de ofertas de la convocatoria 4 (la de adjudicación sigue abierta)
 
-- **Pedido:** `PUT {{base_url}}/convocatorias/conv-4`
+- **Pedido:** `PUT {{base_url}}/convocatorias/CONV-4-{{corrida}}`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** Reabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.
 
@@ -2020,10 +2173,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "emergencia_referencia": "emg-4",
+  "emergencia_referencia": "EMG-4-{{corrida}}",
   "fecha_cierre": "<fecha y hora>",
   "fecha_limite_adjudicacion": "<fecha y hora>",
-  "referencia": "conv-4"
+  "referencia": "CONV-4-{{corrida}}"
 }
 ```
 
@@ -2084,16 +2237,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": "<fecha y hora>",
   "convocatoria": {
-    "emergencia_referencia": "emg-4",
+    "emergencia_referencia": "EMG-4-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-4"
+    "referencia": "CONV-4-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "COMPROMETIDO",
   "finalizado_en": null,
-  "id": 3,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "1.00",
@@ -2104,17 +2257,17 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "404",
+  "oferta_referencia": "OF-404-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
 ```
 
-### 5.5 Oferta 303: reservar 2 rescatistas en conv-3
+### 5.5 Oferta 303: reservar 2 rescatistas en la convocatoria 3
 
 - **Pedido:** `POST {{base_url}}/compromisos`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
@@ -2124,11 +2277,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "303",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-303-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-3",
-    "emergencia_referencia": "emg-3",
+    "referencia": "CONV-3-{{corrida}}",
+    "emergencia_referencia": "EMG-3-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -2148,16 +2301,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-3",
+    "emergencia_referencia": "EMG-3-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-3"
+    "referencia": "CONV-3-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "RESERVADO",
   "finalizado_en": null,
-  "id": 4,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -2168,19 +2321,19 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "303",
+  "oferta_referencia": "OF-303-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
 ```
 
-### 5.6 Termina también la ventana de adjudicación de conv-3
+### 5.6 Termina también la ventana de adjudicación de la convocatoria 3
 
-- **Pedido:** `PUT {{base_url}}/convocatorias/conv-3`
+- **Pedido:** `PUT {{base_url}}/convocatorias/CONV-3-{{corrida}}`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** Reabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.
 
@@ -2197,10 +2350,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "emergencia_referencia": "emg-3",
+  "emergencia_referencia": "EMG-3-{{corrida}}",
   "fecha_cierre": "<fecha y hora>",
   "fecha_limite_adjudicacion": "<fecha y hora>",
-  "referencia": "conv-3"
+  "referencia": "CONV-3-{{corrida}}"
 }
 ```
 
@@ -2249,16 +2402,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-3",
+    "emergencia_referencia": "EMG-3-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-3"
+    "referencia": "CONV-3-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "VENCIDO",
   "finalizado_en": null,
-  "id": 4,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -2269,11 +2422,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "303",
+  "oferta_referencia": "OF-303-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": "<fecha y hora>"
 }
@@ -2281,20 +2434,20 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 5.9 Inventario después del vencimiento
 
-- **Pedido:** `GET {{base_url}}/ongs/{{ong_rio_id}}/recursos`
+- **Pedido:** `GET {{base_url}}/ongs/{{ong_id}}/recursos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
 - **Qué hace el endpoint:** Inventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.
-- **Qué prueba este caso:** Rescatistas: 1 comprometido por la oferta 404 (más los 2 del seed) y los 2 de la oferta 303 liberados.
+- **Qué prueba este caso:** Rescatistas: 1 comprometido por la oferta 404 y los 2 de la oferta 303 liberados.
 
 **Respuesta esperada: `200 OK`**
 
 ```json
 [
   {
-    "cantidad_bloqueada": "20.00",
-    "cantidad_comprometida": "30.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "250.00",
-    "cantidad_total": "300.00",
+    "cantidad_total": "250.00",
     "tipo_recurso": {
       "categoria": "MATERIAL",
       "codigo": "FRAZADA",
@@ -2310,10 +2463,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "2.00",
+    "cantidad_bloqueada": "0.00",
     "cantidad_comprometida": "5.00",
     "cantidad_disponible": "5.00",
-    "cantidad_total": "12.00",
+    "cantidad_total": "10.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "PARAMEDICO",
@@ -2329,10 +2482,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "3.00",
-    "cantidad_comprometida": "3.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "1.00",
     "cantidad_disponible": "14.00",
-    "cantidad_total": "20.00",
+    "cantidad_total": "15.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "RESCATISTA",
@@ -2352,7 +2505,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 5.10 Fechas incoherentes al reabrir
 
-- **Pedido:** `PUT {{base_url}}/convocatorias/conv-3`
+- **Pedido:** `PUT {{base_url}}/convocatorias/CONV-3-{{corrida}}`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** Reabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.
 
@@ -2381,9 +2534,9 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 }
 ```
 
-### 5.11 Consultar la convocatoria conv-4
+### 5.11 Consultar la convocatoria 4
 
-- **Pedido:** `GET {{base_url}}/convocatorias/conv-4`
+- **Pedido:** `GET {{base_url}}/convocatorias/CONV-4-{{corrida}}`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** Fechas de una convocatoria. La convocatoria se registra sola con la primera reserva que la nombra.
 
@@ -2391,10 +2544,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "emergencia_referencia": "emg-4",
+  "emergencia_referencia": "EMG-4-{{corrida}}",
   "fecha_cierre": "<fecha y hora>",
   "fecha_limite_adjudicacion": "<fecha y hora>",
-  "referencia": "conv-4"
+  "referencia": "CONV-4-{{corrida}}"
 }
 ```
 
@@ -2417,7 +2570,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ## 6. Reformulación de la convocatoria
 
-### 6.1 Oferta 505: reservar 10 frazadas en conv-5
+### 6.1 Oferta 505: reservar 10 frazadas en la convocatoria 5
 
 - **Pedido:** `POST {{base_url}}/compromisos`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
@@ -2427,11 +2580,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "505",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-505-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-5",
-    "emergencia_referencia": "emg-5",
+    "referencia": "CONV-5-{{corrida}}",
+    "emergencia_referencia": "EMG-5-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -2451,16 +2604,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-5",
+    "emergencia_referencia": "EMG-5-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-5"
+    "referencia": "CONV-5-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "RESERVADO",
   "finalizado_en": null,
-  "id": 5,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -2471,19 +2624,19 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "505",
+  "oferta_referencia": "OF-505-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
 ```
 
-### 6.2 Reformular conv-5: sus reservas pasan a conv-5b
+### 6.2 Reformular la convocatoria 5: sus reservas pasan a la 5B
 
-- **Pedido:** `POST {{base_url}}/convocatorias/conv-5/reformulacion`
+- **Pedido:** `POST {{base_url}}/convocatorias/CONV-5-{{corrida}}/reformulacion`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** Reformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.
 
@@ -2492,7 +2645,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 ```json
 {
   "nueva": {
-    "referencia": "conv-5b",
+    "referencia": "CONV-5B-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   }
@@ -2505,15 +2658,15 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 {
   "compromisos_movidos": 1,
   "convocatoria": {
-    "emergencia_referencia": "emg-5",
+    "emergencia_referencia": "EMG-5-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-5b"
+    "referencia": "CONV-5B-{{corrida}}"
   }
 }
 ```
 
-### 6.3 La oferta 505 ahora pertenece a conv-5b
+### 6.3 La oferta 505 ahora pertenece a la convocatoria 5B
 
 - **Pedido:** `GET {{base_url}}/compromisos/{{compromiso_505}}`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
@@ -2526,16 +2679,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": null,
   "convocatoria": {
-    "emergencia_referencia": "emg-5",
+    "emergencia_referencia": "EMG-5-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-5b"
+    "referencia": "CONV-5B-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "RESERVADO",
   "finalizado_en": null,
-  "id": 5,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "0.00",
@@ -2546,11 +2699,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "505",
+  "oferta_referencia": "OF-505-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -2558,7 +2711,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 6.4 Repetir la reformulación
 
-- **Pedido:** `POST {{base_url}}/convocatorias/conv-5/reformulacion`
+- **Pedido:** `POST {{base_url}}/convocatorias/CONV-5-{{corrida}}/reformulacion`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** Reformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.
 - **Qué prueba este caso:** Idempotencia: ya no queda nada por mover.
@@ -2568,7 +2721,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 ```json
 {
   "nueva": {
-    "referencia": "conv-5b",
+    "referencia": "CONV-5B-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   }
@@ -2581,17 +2734,17 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 {
   "compromisos_movidos": 0,
   "convocatoria": {
-    "emergencia_referencia": "emg-5",
+    "emergencia_referencia": "EMG-5-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-5b"
+    "referencia": "CONV-5B-{{corrida}}"
   }
 }
 ```
 
 ### 6.5 Reformular hacia la misma convocatoria
 
-- **Pedido:** `POST {{base_url}}/convocatorias/conv-5b/reformulacion`
+- **Pedido:** `POST {{base_url}}/convocatorias/CONV-5B-{{corrida}}/reformulacion`
 - **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
 - **Qué hace el endpoint:** Reformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.
 
@@ -2600,7 +2753,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 ```json
 {
   "nueva": {
-    "referencia": "conv-5b",
+    "referencia": "CONV-5B-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   }
@@ -2628,9 +2781,9 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ## 7. Consultas
 
-### 7.1 Compromisos de la emergencia emg-1
+### 7.1 Compromisos de la emergencia 1
 
-- **Pedido:** `GET {{base_url}}/compromisos?emergencia=emg-1`
+- **Pedido:** `GET {{base_url}}/compromisos?emergencia=EMG-1-{{corrida}}`
 - **Token (pestaña Authorization):** `{{token_auditor}}` (AUDITOR)
 - **Qué hace el endpoint:** Lista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`.
 
@@ -2642,16 +2795,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": null,
     "confirmado_en": "<fecha y hora>",
     "convocatoria": {
-      "emergencia_referencia": "emg-1",
+      "emergencia_referencia": "EMG-1-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-1"
+      "referencia": "CONV-1-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "COMPROMETIDO",
     "finalizado_en": null,
-    "id": 1,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "5.00",
@@ -2670,20 +2823,20 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "101",
+    "oferta_referencia": "OF-101-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": null
   }
 ]
 ```
 
-### 7.2 Compromisos vencidos
+### 7.2 Compromisos vencidos de la ONG
 
-- **Pedido:** `GET {{base_url}}/compromisos?estado=VENCIDO`
+- **Pedido:** `GET {{base_url}}/compromisos?estado=VENCIDO&ong_cuit={{ong_cuit}}`
 - **Token (pestaña Authorization):** `{{token_auditor}}` (AUDITOR)
 - **Qué hace el endpoint:** Lista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`.
 
@@ -2695,16 +2848,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": null,
     "confirmado_en": null,
     "convocatoria": {
-      "emergencia_referencia": "emg-3",
+      "emergencia_referencia": "EMG-3-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-3"
+      "referencia": "CONV-3-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "VENCIDO",
     "finalizado_en": null,
-    "id": 4,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "0.00",
@@ -2715,20 +2868,20 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "303",
+    "oferta_referencia": "OF-303-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": "<fecha y hora>"
   }
 ]
 ```
 
-### 7.3 Compromisos cancelados
+### 7.3 Compromisos cancelados de la ONG
 
-- **Pedido:** `GET {{base_url}}/compromisos?estado=CANCELADO`
+- **Pedido:** `GET {{base_url}}/compromisos?estado=CANCELADO&ong_cuit={{ong_cuit}}`
 - **Token (pestaña Authorization):** `{{token_auditor}}` (AUDITOR)
 - **Qué hace el endpoint:** Lista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`.
 
@@ -2740,16 +2893,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": "<fecha y hora>",
     "confirmado_en": null,
     "convocatoria": {
-      "emergencia_referencia": "emg-2",
+      "emergencia_referencia": "EMG-2-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-2"
+      "referencia": "CONV-2-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "CANCELADO",
     "finalizado_en": null,
-    "id": 2,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "0.00",
@@ -2760,11 +2913,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "202",
+    "oferta_referencia": "OF-202-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": null
   }
@@ -2773,7 +2926,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 7.4 Compromisos de una oferta
 
-- **Pedido:** `GET {{base_url}}/compromisos?oferta_referencia=101`
+- **Pedido:** `GET {{base_url}}/compromisos?oferta_referencia=OF-101-{{corrida}}`
 - **Token (pestaña Authorization):** `{{token_auditor}}` (AUDITOR)
 - **Qué hace el endpoint:** Lista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`.
 
@@ -2785,16 +2938,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": null,
     "confirmado_en": "<fecha y hora>",
     "convocatoria": {
-      "emergencia_referencia": "emg-1",
+      "emergencia_referencia": "EMG-1-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-1"
+      "referencia": "CONV-1-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "COMPROMETIDO",
     "finalizado_en": null,
-    "id": 1,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "5.00",
@@ -2813,11 +2966,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "101",
+    "oferta_referencia": "OF-101-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": null
   }
@@ -2826,7 +2979,7 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ### 7.5 Todos los compromisos de la ONG
 
-- **Pedido:** `GET {{base_url}}/compromisos?ong_cuit=30-11111111-1`
+- **Pedido:** `GET {{base_url}}/compromisos?ong_cuit={{ong_cuit}}`
 - **Token (pestaña Authorization):** `{{token_auditor}}` (AUDITOR)
 - **Qué hace el endpoint:** Lista reservas y compromisos. Filtros: `emergencia`, `convocatoria`, `ong_cuit`, `estado` y `oferta_referencia`.
 
@@ -2838,16 +2991,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": null,
     "confirmado_en": null,
     "convocatoria": {
-      "emergencia_referencia": "emg-5",
+      "emergencia_referencia": "EMG-5-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-5b"
+      "referencia": "CONV-5B-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "RESERVADO",
     "finalizado_en": null,
-    "id": 5,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "0.00",
@@ -2858,11 +3011,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "505",
+    "oferta_referencia": "OF-505-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": null
   },
@@ -2870,16 +3023,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": null,
     "confirmado_en": null,
     "convocatoria": {
-      "emergencia_referencia": "emg-3",
+      "emergencia_referencia": "EMG-3-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-3"
+      "referencia": "CONV-3-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "VENCIDO",
     "finalizado_en": null,
-    "id": 4,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "0.00",
@@ -2890,11 +3043,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "303",
+    "oferta_referencia": "OF-303-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": "<fecha y hora>"
   },
@@ -2902,16 +3055,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": null,
     "confirmado_en": "<fecha y hora>",
     "convocatoria": {
-      "emergencia_referencia": "emg-4",
+      "emergencia_referencia": "EMG-4-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-4"
+      "referencia": "CONV-4-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "COMPROMETIDO",
     "finalizado_en": null,
-    "id": 3,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "1.00",
@@ -2922,11 +3075,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "404",
+    "oferta_referencia": "OF-404-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": null
   },
@@ -2934,16 +3087,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": "<fecha y hora>",
     "confirmado_en": null,
     "convocatoria": {
-      "emergencia_referencia": "emg-2",
+      "emergencia_referencia": "EMG-2-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-2"
+      "referencia": "CONV-2-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "CANCELADO",
     "finalizado_en": null,
-    "id": 2,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "0.00",
@@ -2954,11 +3107,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "202",
+    "oferta_referencia": "OF-202-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": null
   },
@@ -2966,16 +3119,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     "cancelado_en": null,
     "confirmado_en": "<fecha y hora>",
     "convocatoria": {
-      "emergencia_referencia": "emg-1",
+      "emergencia_referencia": "EMG-1-{{corrida}}",
       "fecha_cierre": "<fecha y hora>",
       "fecha_limite_adjudicacion": "<fecha y hora>",
-      "referencia": "conv-1"
+      "referencia": "CONV-1-{{corrida}}"
     },
     "creado_en": "<fecha y hora>",
-    "creado_por": "sistema_webapp",
+    "creado_por": "1",
     "estado": "COMPROMETIDO",
     "finalizado_en": null,
-    "id": 1,
+    "id": "<id>",
     "items": [
       {
         "cantidad_comprometida": "5.00",
@@ -2994,11 +3147,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
         }
       }
     ],
-    "oferta_referencia": "101",
+    "oferta_referencia": "OF-101-{{corrida}}",
     "ong": {
-      "cuit": "30-11111111-1",
-      "id": 1,
-      "razon_social": "Rescatistas del Río"
+      "cuit": "{{ong_cuit}}",
+      "id": "<id>",
+      "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
     },
     "vencido_en": null
   }
@@ -3018,16 +3171,16 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
   "cancelado_en": null,
   "confirmado_en": "<fecha y hora>",
   "convocatoria": {
-    "emergencia_referencia": "emg-1",
+    "emergencia_referencia": "EMG-1-{{corrida}}",
     "fecha_cierre": "<fecha y hora>",
     "fecha_limite_adjudicacion": "<fecha y hora>",
-    "referencia": "conv-1"
+    "referencia": "CONV-1-{{corrida}}"
   },
   "creado_en": "<fecha y hora>",
-  "creado_por": "sistema_webapp",
+  "creado_por": "1",
   "estado": "COMPROMETIDO",
   "finalizado_en": null,
-  "id": 1,
+  "id": "<id>",
   "items": [
     {
       "cantidad_comprometida": "5.00",
@@ -3046,11 +3199,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
       }
     }
   ],
-  "oferta_referencia": "101",
+  "oferta_referencia": "OF-101-{{corrida}}",
   "ong": {
-    "cuit": "30-11111111-1",
-    "id": 1,
-    "razon_social": "Rescatistas del Río"
+    "cuit": "{{ong_cuit}}",
+    "id": "<id>",
+    "razon_social": "Rescatistas de Prueba (Postman I-3.4)"
   },
   "vencido_en": null
 }
@@ -3091,11 +3244,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "801",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-801-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-8",
-    "emergencia_referencia": "emg-8",
+    "referencia": "CONV-8-{{corrida}}",
+    "emergencia_referencia": "EMG-8-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -3128,11 +3281,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "801",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-801-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-8",
-    "emergencia_referencia": "emg-8",
+    "referencia": "CONV-8-{{corrida}}",
+    "emergencia_referencia": "EMG-8-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -3165,11 +3318,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "801",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-801-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-8",
-    "emergencia_referencia": "emg-8",
+    "referencia": "CONV-8-{{corrida}}",
+    "emergencia_referencia": "EMG-8-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -3202,11 +3355,11 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 
 ```json
 {
-  "oferta_referencia": "801",
-  "ong_cuit": "30-11111111-1",
+  "oferta_referencia": "OF-801-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
   "convocatoria": {
-    "referencia": "conv-8",
-    "emergencia_referencia": "emg-8",
+    "referencia": "CONV-8-{{corrida}}",
+    "emergencia_referencia": "EMG-8-{{corrida}}",
     "fecha_cierre": "{{cierre_futuro}}",
     "fecha_limite_adjudicacion": "{{limite_futuro}}"
   },
@@ -3245,12 +3398,77 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 }
 ```
 
+### 8.6 Login de la ONG de prueba
+
+- **Pedido:** `POST {{base_url}}/login`
+- **Token (pestaña Authorization):** ninguno (*No Auth*)
+- **Qué hace el endpoint:** Inicio de sesión (punto I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.
+- **Qué prueba este caso:** La ONG entra con su email. Guarda el token en `token_ong`.
+
+**Body** (pestaña *Body* → *raw* → *JSON*):
+
+```json
+{
+  "usuario": "{{ong_email}}",
+  "password": "{{password_ong}}"
+}
+```
+
+**Respuesta esperada: `200 OK`**
+
+```json
+{
+  "access_token": "<token>",
+  "expira_en_segundos": 28800,
+  "rol": "ONG",
+  "token_type": "Bearer"
+}
+```
+
+### 8.7 La ONG no puede reservar con su propio token
+
+- **Pedido:** `POST {{base_url}}/compromisos`
+- **Token (pestaña Authorization):** `{{token_ong}}` (ONG)
+- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Qué prueba este caso:** Las reservas las pide la webapp en nombre de la ONG, no la ONG directamente.
+
+**Body** (pestaña *Body* → *raw* → *JSON*):
+
+```json
+{
+  "oferta_referencia": "OF-801-{{corrida}}",
+  "ong_cuit": "{{ong_cuit}}",
+  "convocatoria": {
+    "referencia": "CONV-8-{{corrida}}",
+    "emergencia_referencia": "EMG-8-{{corrida}}",
+    "fecha_cierre": "{{cierre_futuro}}",
+    "fecha_limite_adjudicacion": "{{limite_futuro}}"
+  },
+  "items": [
+    {
+      "tipo_recurso": "PARAMEDICO",
+      "cantidad": 1
+    }
+  ]
+}
+```
+
+**Respuesta esperada: `403 FORBIDDEN`**
+
+```json
+{
+  "codigo": "PROHIBIDO",
+  "detalles": {},
+  "mensaje": "El rol del token no permite esta operación."
+}
+```
+
 
 ## 9. Estado final
 
-### 9.1 Inventario final de Rescatistas del Río
+### 9.1 Inventario final de la ONG de prueba
 
-- **Pedido:** `GET {{base_url}}/ongs/{{ong_rio_id}}/recursos`
+- **Pedido:** `GET {{base_url}}/ongs/{{ong_id}}/recursos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
 - **Qué hace el endpoint:** Inventario de una ONG por categoría (punto I-3.2): total, bloqueado, comprometido y disponible. Sirve para ver el efecto de cada operación. No pide token.
 - **Qué prueba este caso:** 5 paramédicos y 1 rescatista comprometidos; 10 frazadas reservadas (oferta 505). Nunca se reservó más de lo que había.
@@ -3260,10 +3478,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
 ```json
 [
   {
-    "cantidad_bloqueada": "30.00",
-    "cantidad_comprometida": "30.00",
+    "cantidad_bloqueada": "10.00",
+    "cantidad_comprometida": "0.00",
     "cantidad_disponible": "240.00",
-    "cantidad_total": "300.00",
+    "cantidad_total": "250.00",
     "tipo_recurso": {
       "categoria": "MATERIAL",
       "codigo": "FRAZADA",
@@ -3279,10 +3497,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "2.00",
+    "cantidad_bloqueada": "0.00",
     "cantidad_comprometida": "5.00",
     "cantidad_disponible": "5.00",
-    "cantidad_total": "12.00",
+    "cantidad_total": "10.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "PARAMEDICO",
@@ -3298,10 +3516,10 @@ Los ids de los compromisos se guardan solos en variables (`compromiso_101`, `com
     }
   },
   {
-    "cantidad_bloqueada": "3.00",
-    "cantidad_comprometida": "3.00",
+    "cantidad_bloqueada": "0.00",
+    "cantidad_comprometida": "1.00",
     "cantidad_disponible": "14.00",
-    "cantidad_total": "20.00",
+    "cantidad_total": "15.00",
     "tipo_recurso": {
       "categoria": "PERSONAL",
       "codigo": "RESCATISTA",
