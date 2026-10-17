@@ -121,7 +121,7 @@ Todos los endpoints de este punto exigen el token de una cuenta de servicio con 
 | `SISTEMA_BONITA` | Verificar, confirmar lo adjudicado y cambiar las fechas de una convocatoria |
 | `AUDITOR` | Consultar |
 
-El login que emite los tokens es parte de I-3.1. Mientras tanto, `flask token-servicio <ROL>` emite uno para probar desde Swagger.
+Los tokens se piden en `POST /api/v1/login` con las cuentas de servicio `webapp`, `bonita` y `auditor` (I-3.1, `docs/06-login-y-registro.md`). Un token de ONG recibe 403. Para desarrollo, `flask token-servicio <ROL>` también emite uno.
 
 ## 6. Pruebas
 
@@ -136,3 +136,5 @@ El login que emite los tokens es parte de I-3.1. Mientras tanto, `flask token-se
   - el CHECK de la base.
 
 **Control negativo.** Con el mismo código, pero leyendo el inventario sin `FOR UPDATE`, los tests de concurrencia fallan: las dos reservas de 8 sobre 10 devuelven 201, y las seis de 3 se aceptan todas.
+
+**Postman.** `docs/postman/RescueSync-I-3.4.postman_collection.json` recorre el flujo completo en 73 pedidos: login, validación, reserva, modificación y retiro, adjudicación total y parcial, vencimiento, reformulación, consultas y seguridad. `docs/postman/casos-de-prueba-i-3.4.md` explica cómo correrla y muestra cada pedido con su respuesta esperada. Apunta a la API publicada en Render y solo pide las contraseñas de las cuentas de servicio. Cada corrida registra su propia ONG de prueba y usa referencias únicas, así se puede repetir sobre la misma base. Se verificó con Newman el 17/10, en local y contra Render: 185 verificaciones sin fallas.
