@@ -1,9 +1,9 @@
 from marshmallow import Schema, fields
 
-from app.schemas import FiltrosSchema
+from app.schemas import FiltrosEstrictosSchema
 
 
-class CertificacionFiltrosSchema(FiltrosSchema):
+class CertificacionFiltrosSchema(FiltrosEstrictosSchema):
     solo_activas = fields.Bool(load_default=True)
 
 

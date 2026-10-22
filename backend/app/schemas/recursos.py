@@ -1,13 +1,13 @@
 from marshmallow import Schema, fields
 
-from app.schemas import FiltrosSchema, TipoRecursoSchema
+from app.schemas import FiltrosEstrictosSchema, TipoRecursoSchema
 
 
-class TipoRecursoFiltrosSchema(FiltrosSchema):
+class TipoRecursoFiltrosSchema(FiltrosEstrictosSchema):
     solo_activos = fields.Bool(load_default=True)
 
 
-class DisponibilidadFiltrosSchema(FiltrosSchema):
+class DisponibilidadFiltrosSchema(FiltrosEstrictosSchema):
     tipo_recurso_id = fields.Int(load_default=None, allow_none=True)
     ong_id = fields.Int(load_default=None, allow_none=True)
     solo_ongs_habilitadas = fields.Bool(load_default=True)

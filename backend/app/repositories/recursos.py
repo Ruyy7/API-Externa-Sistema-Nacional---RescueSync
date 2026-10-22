@@ -29,10 +29,13 @@ class RecursoRepository:
     def tipos(
         self, pagina: int, tamano: int, *, solo_activos: bool = True
     ) -> tuple[list[TipoRecurso], int]:
-        consulta = select(TipoRecurso).order_by(TipoRecurso.nombre)
+        consulta = select(TipoRecurso).order_by(TipoRecurso.nombre, TipoRecurso.id)
         if solo_activos:
             consulta = consulta.where(TipoRecurso.activo)
         return paginar_entidades(consulta, pagina, tamano)
+
+    def tipo(self, tipo_recurso_id: int) -> TipoRecurso | None:
+        return db.session.get(TipoRecurso, tipo_recurso_id)
 
     def codigos_existentes(self, codigos: set[str]) -> set[str]:
         consulta = select(TipoRecurso.codigo).where(TipoRecurso.codigo.in_(codigos))
@@ -94,7 +97,7 @@ class RecursoRepository:
             select(InventarioRecurso)
             .where(InventarioRecurso.ong_id == ong_id)
             .join(InventarioRecurso.tipo_recurso)
-            .order_by(TipoRecurso.nombre)
+            .order_by(TipoRecurso.nombre, TipoRecurso.id)
         )
         return list(db.session.scalars(consulta))
 
@@ -118,7 +121,7 @@ class RecursoRepository:
             .join(ONG, ONG.id == InventarioRecurso.ong_id)
             .where(TipoRecurso.activo)
             .group_by(TipoRecurso.id)
-            .order_by(TipoRecurso.nombre)
+            .order_by(TipoRecurso.nombre, TipoRecurso.id)
         )
         if solo_ongs_habilitadas:
             consulta = consulta.where(ONG.estado == EstadoONG.HABILITADA)

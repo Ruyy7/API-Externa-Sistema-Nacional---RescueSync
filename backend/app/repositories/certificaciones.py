@@ -9,7 +9,7 @@ class CertificacionRepository:
     def listar(
         self, pagina: int, tamano: int, *, solo_activas: bool = True
     ) -> tuple[list[Certificacion], int]:
-        consulta = select(Certificacion).order_by(Certificacion.nombre)
+        consulta = select(Certificacion).order_by(Certificacion.nombre, Certificacion.id)
         if solo_activas:
             consulta = consulta.where(Certificacion.activa)
         return paginar_entidades(consulta, pagina, tamano)
@@ -19,6 +19,6 @@ class CertificacionRepository:
             select(ONGCertificacion)
             .where(ONGCertificacion.ong_id == ong_id)
             .join(ONGCertificacion.certificacion)
-            .order_by(Certificacion.nombre)
+            .order_by(Certificacion.nombre, Certificacion.id)
         )
         return list(db.session.scalars(consulta))

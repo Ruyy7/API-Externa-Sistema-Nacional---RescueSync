@@ -44,9 +44,9 @@ http://localhost:5001/api/v1/docs
 ## Endpoints principales
 
 ```text
-GET /api/v1/ongs?habilitada=true
-GET /api/v1/ongs/{id}
-GET /api/v1/ongs/{id}/certificaciones
+GET /api/v1/ongs?habilitada=true          # I-3.2, token de servicio (webapp, bonita o auditor)
+GET /api/v1/ongs/{id}                      # I-3.2, token de servicio
+GET /api/v1/ongs/{id}/certificaciones      # I-3.2, token de servicio
 GET /api/v1/ongs/{id}/recursos
 GET /api/v1/certificaciones
 GET /api/v1/tipos-recursos

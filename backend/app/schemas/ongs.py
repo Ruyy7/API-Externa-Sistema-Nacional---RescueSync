@@ -1,9 +1,9 @@
 from marshmallow import Schema, fields
 
-from app.schemas import FiltrosSchema
+from app.schemas import FiltrosEstrictosSchema
 
 
-class ONGFiltrosSchema(FiltrosSchema):
+class ONGFiltrosSchema(FiltrosEstrictosSchema):
     habilitada = fields.Bool(load_default=None, allow_none=True)
 
 

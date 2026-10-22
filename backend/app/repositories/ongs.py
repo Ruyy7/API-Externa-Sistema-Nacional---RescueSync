@@ -18,7 +18,7 @@ class ONGRepository:
     def listar(
         self, pagina: int, tamano: int, *, habilitada: bool | None = None
     ) -> tuple[list[ONG], int]:
-        consulta = select(ONG).order_by(ONG.razon_social)
+        consulta = select(ONG).order_by(ONG.razon_social, ONG.id)
         if habilitada is True:
             consulta = consulta.where(ONG.estado == EstadoONG.HABILITADA)
         elif habilitada is False:

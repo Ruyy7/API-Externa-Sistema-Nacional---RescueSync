@@ -1,23 +1,41 @@
-"""Endpoints de ONGs: consulta (I-3.2) y registro con sus categorías (I-3.1)."""
+"""Endpoints de ONGs: consulta (I-3.2) y registro con sus categorías (I-3.1).
+
+Las consultas que devuelven datos de contacto (CUIT, email, teléfono) exigen el token de una
+cuenta de servicio. Una ONG consulta sus propios datos con /ongs/yo.
+"""
 
 from flask.views import MethodView
 from flask_smorest import Blueprint
 
+from app.controllers.errores import documentar_errores
 from app.schemas.certificaciones import ONGCertificacionSchema
 from app.schemas.cuentas import CategoriasEntradaSchema, ONGRegistradaSchema, RegistroONGSchema
 from app.schemas.ongs import ONGFiltrosSchema, ONGSchema
 from app.schemas.recursos import InventarioRecursoSchema
-from app.security import SEGURIDAD, RolSistema, cuit_del_token, roles_required
+from app.security import (
+    ROLES_DE_SERVICIO,
+    SEGURIDAD,
+    RolSistema,
+    cuit_del_token,
+    roles_required,
+)
 from app.services import servicios
 
 bp = Blueprint("ONGs", __name__, url_prefix="/api/v1", description="ONGs")
 
 
+def _errores(*codigos: int):
+    return documentar_errores(bp, *codigos)
+
+
 @bp.route("/ongs")
 class ONGs(MethodView):
+    @roles_required(*ROLES_DE_SERVICIO)
+    @bp.doc(security=SEGURIDAD)
     @bp.arguments(ONGFiltrosSchema, location="query")
     @bp.response(200, ONGSchema(many=True))
     @bp.paginate()
+    @_errores(401, 403)
     def get(self, filtros, pagination_parameters):
         """Lista ONGs; `habilitada=true` devuelve únicamente ONGs habilitadas."""
         ongs, total = servicios().ongs.listar(
@@ -69,7 +87,10 @@ class MisCategorias(MethodView):
 
 @bp.route("/ongs/<int:ong_id>")
 class ONPorId(MethodView):
+    @roles_required(*ROLES_DE_SERVICIO)
+    @bp.doc(security=SEGURIDAD)
     @bp.response(200, ONGSchema)
+    @_errores(401, 403, 404)
     def get(self, ong_id):
         """Detalle de una ONG registrada en el Sistema Nacional."""
         return servicios().ongs.obtener(ong_id)
@@ -77,7 +98,10 @@ class ONPorId(MethodView):
 
 @bp.route("/ongs/<int:ong_id>/certificaciones")
 class CertificacionesDeONG(MethodView):
+    @roles_required(*ROLES_DE_SERVICIO)
+    @bp.doc(security=SEGURIDAD)
     @bp.response(200, ONGCertificacionSchema(many=True))
+    @_errores(401, 403, 404)
     def get(self, ong_id):
         """Certificaciones declaradas para una ONG, con vigencia y fechas."""
         return servicios().certificaciones.de_ong(ong_id)
