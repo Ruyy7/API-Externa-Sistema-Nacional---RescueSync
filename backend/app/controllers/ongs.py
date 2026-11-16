@@ -67,6 +67,36 @@ class MisCategorias(MethodView):
         return servicios().onboarding.actualizar_categorias(cuit_del_token(), datos["categorias"])
 
 
+@bp.route("/ongs/cuit/<string:cuit>")
+class ONGPorCuit(MethodView):
+    @roles_required(RolSistema.WEBAPP, RolSistema.AUDITOR)
+    @bp.doc(security=SEGURIDAD)
+    @bp.response(200, ONGRegistradaSchema)
+    def get(self, cuit):
+        """Una ONG por su CUIT, con sus categorías y lo disponible en cada una.
+
+        Es el inventario que la webapp le muestra a la ONG: la webapp conoce a sus ONGs por CUIT
+        y no tiene su token propio.
+        """
+        return servicios().onboarding.mi_ong(cuit)
+
+
+@bp.route("/ongs/cuit/<string:cuit>/categorias")
+class CategoriasPorCuit(MethodView):
+    @roles_required(RolSistema.WEBAPP)
+    @bp.doc(security=SEGURIDAD)
+    @bp.arguments(CategoriasEntradaSchema)
+    @bp.response(200, ONGRegistradaSchema)
+    @bp.alt_response(409, description="Un tope quedaría por debajo de lo reservado o comprometido")
+    def put(self, datos, cuit):
+        """Reemplaza las categorías y los topes de una ONG, en nombre de ella (webapp).
+
+        Mismas reglas que `PUT /ongs/yo/categorias`: la webapp ya verificó que el usuario es
+        representante de esa ONG.
+        """
+        return servicios().onboarding.actualizar_categorias(cuit, datos["categorias"])
+
+
 @bp.route("/ongs/<int:ong_id>")
 class ONPorId(MethodView):
     @bp.response(200, ONGSchema)
