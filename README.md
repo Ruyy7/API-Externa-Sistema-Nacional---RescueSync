@@ -206,3 +206,8 @@ Ver `docs/01-catalogo-y-consulta.md` para las decisiones del punto I-3.2,
 `docs/02-reservas-y-compromisos.md` para la preparación del modelo de I-3.4,
 `docs/04-bloqueo-y-compromiso.md` para su implementación y `docs/07-liberacion-y-cierre.md`
 para la liberación y el cierre (I-3.5).
+
+**Orquestación por Bonita:** la validación, el bloqueo, el compromiso y la liberación los invoca
+solo Bonita, nunca la webapp. Qué llama el proceso en cada tarea, los contratos y el cambio del
+bloqueo (de la presentación de la oferta a la validación) están en
+`docs/08-orquestacion-bonita.md`.
