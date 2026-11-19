@@ -9,6 +9,7 @@ from app.controllers import (
     convocatorias,
     liberaciones,
     ongs,
+    orquestacion,
     recursos,
     validaciones,
 )
@@ -24,5 +25,6 @@ def registrar_blueprints(api: Api) -> None:
         compromisos,
         convocatorias,
         liberaciones,
+        orquestacion,
     ):
         api.register_blueprint(modulo.bp)
