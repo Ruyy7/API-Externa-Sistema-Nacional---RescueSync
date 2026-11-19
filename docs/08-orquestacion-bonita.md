@@ -1,6 +1,6 @@
 # Orquestación por Bonita: qué llama el proceso en cada tarea
 
-> **Estado (19/11/2026):** implementado en la rama `feature/orquestacion-bonita`, con 42 tests (`backend/tests/test_orquestacion.py`). La validación con bloqueo y el desbloqueo se probaron de punta a punta contra la webapp, haciendo a mano las llamadas del conector. Falta configurar los conectores en Bonita Studio y los endpoints de la webapp para la adjudicación y las actividades (sección 6).
+> **Estado (19/11/2026):** implementado en la rama `feature/orquestacion-bonita`, con 42 tests (`backend/tests/test_orquestacion.py`). El proceso completo se probó de punta a punta contra la webapp (su rama `feature/orquestacion-bonita`), haciendo a mano las llamadas de cada conector: validar y bloquear, comprometer, informar actividades, liberar y cerrar. Falta configurar los conectores en Bonita Studio (sección 6).
 
 ## 1. Por qué
 
@@ -163,6 +163,5 @@ Las operaciones en lote usan el locking de I-3.4 (`repositories/bloqueos.py`):
 ## 6. Pendiente
 
 - **Bonita Studio:** configurar los conectores de la sección 2. La guía está en el repositorio de la webapp (`docs/11-guia-bonita-proceso-completo.md`).
-- **Webapp:** dejar de llamar a la API en el proceso y exponerle a Bonita lo adjudicado y las actividades sin informar.
 - **Permisos de la cuenta `webapp`:** los endpoints anteriores (`POST /compromisos`, su ajuste, cancelación y confirmación, `POST /actividades`, la liberación y el cierre) siguen aceptando a la cuenta `webapp`. Para que la API haga cumplir el principio hay que quitársela, pero las colecciones de Postman de `docs/postman/` usan ese token. Es una decisión del equipo.
 - **Docs 04 y 07:** describen el flujo anterior, con la webapp como quien llama. Actualizarlos cuando se cierre el punto de los permisos.
