@@ -1,6 +1,6 @@
 # Orquestación por Bonita: qué llama el proceso en cada tarea
 
-> **Estado (19/11/2026):** implementado en la rama `feature/orquestacion-bonita`, con 42 tests (`backend/tests/test_orquestacion.py`). El proceso completo se probó de punta a punta contra la webapp (su rama `feature/orquestacion-bonita`), haciendo a mano las llamadas de cada conector: validar y bloquear, comprometer, informar actividades, liberar y cerrar. Falta configurar los conectores en Bonita Studio (sección 6).
+> **Estado (19/11/2026):** implementado en la rama `feature/orquestacion-bonita`, con 42 tests (`backend/tests/test_orquestacion.py`). Los conectores están configurados en el proceso de Bonita (`docs/rescue-sync_e5.bos` del repositorio de la webapp) y el proceso completo se probó de punta a punta con el motor de Bonita, la webapp y esta API, en los cuatro caminos: feliz, reabrir, reformular y continuar parcial. También con la API caída: la tarea de Bonita queda fallida y, al reintentarla, la llamada se repite sin efecto doble.
 
 ## 1. Por qué
 
@@ -17,7 +17,7 @@ Todas las llamadas se ubican por la emergencia, que es la variable `emergenciaId
 | Tarea del proceso | Llamada | Qué hace | Cuerpo |
 |---|---|---|---|
 | *Validar ofertas* | `POST /emergencias/{emergenciaId}/bloqueo` | Valida por niveles de competencia y bloquea lo aceptado | El JSON que devuelve la webapp en `GET /sistema/emergencias/{id}/ofertas`, tal cual |
-| *Reabrir convocatoria* y *Reformular lotes* | `POST /emergencias/{emergenciaId}/desbloqueo` | Libera los bloqueos que no se adjudicaron | Sin cuerpo |
+| *Reabrir convocatoria* y *Reformular lotes* | `POST /emergencias/{emergenciaId}/desbloqueo` | Libera los bloqueos que no se adjudicaron | Sin cuerpo, o `{}` (es lo que manda el conector) |
 | *Comprometer recursos* | `POST /emergencias/{emergenciaId}/adjudicacion` | Compromete lo adjudicado y libera el resto | Lo que adjudicó el municipio, que Bonita le pide a la webapp |
 | *Marcar actividad como finalizada* | `POST /emergencias/{emergenciaId}/actividades` | Registra las actividades cumplidas y libera sus recursos | Las actividades sin informar, que Bonita le pide a la webapp |
 | *Liberar recursos* | `POST /emergencias/{emergenciaId}/liberacion` (ya existía, doc 07) | Libera lo que siga comprometido | `{}` |
@@ -162,6 +162,6 @@ Las operaciones en lote usan el locking de I-3.4 (`repositories/bloqueos.py`):
 
 ## 6. Pendiente
 
-- **Bonita Studio:** configurar los conectores de la sección 2. La guía está en el repositorio de la webapp (`docs/11-guia-bonita-proceso-completo.md`).
+- **Render:** redesplegar esta rama. Los conectores de Bonita llaman a los endpoints nuevos, que la versión publicada todavía no tiene. El detalle de los conectores está en el repositorio de la webapp (`docs/11-guia-bonita-proceso-completo.md`).
 - **Permisos de la cuenta `webapp`:** los endpoints anteriores (`POST /compromisos`, su ajuste, cancelación y confirmación, `POST /actividades`, la liberación y el cierre) siguen aceptando a la cuenta `webapp`. Para que la API haga cumplir el principio hay que quitársela, pero las colecciones de Postman de `docs/postman/` usan ese token. Es una decisión del equipo.
 - **Docs 04 y 07:** describen el flujo anterior, con la webapp como quien llama. Actualizarlos cuando se cierre el punto de los permisos.
