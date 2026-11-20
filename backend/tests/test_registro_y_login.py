@@ -166,14 +166,14 @@ def test_una_cuenta_inactiva_no_entra(client):
 
 
 def test_la_cuenta_de_servicio_entra_y_usa_los_endpoints_de_i_3_4(client):
-    cuenta_de_servicio("webapp", RolSistema.WEBAPP)
+    cuenta_de_servicio("bonita", RolSistema.BONITA)
 
-    token = login(client, "webapp", "servicio-1234").json
+    token = login(client, "bonita", "servicio-1234").json
     reserva = client.post(
         URL, json=pedido(), headers={"Authorization": f"Bearer {token['access_token']}"}
     )
 
-    assert token["rol"] == "SISTEMA_WEBAPP"
+    assert token["rol"] == "SISTEMA_BONITA"
     assert reserva.status_code == 201
 
 

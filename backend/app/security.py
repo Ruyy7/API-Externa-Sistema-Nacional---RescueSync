@@ -1,8 +1,12 @@
 """Autenticación con JWT y control de acceso por rol.
 
 A la API del Sistema Nacional la llaman sistemas: la webapp RescueSync y Bonita, cada uno con una
-cuenta de servicio. Las ONGs también tienen cuenta, que crean al registrarse (I-3.1), para
-consultar y actualizar sus categorías. El token lleva el rol en el claim `rol` y, si es de una ONG,
+cuenta de servicio. Las operaciones del proceso (validar, bloquear, comprometer, liberar y cerrar)
+solo las acepta la cuenta de Bonita, el orquestador: la webapp no las invoca nunca (pauta de la
+cátedra del 19/11, docs/08-orquestacion-bonita.md). La webapp conserva las consultas.
+
+Las ONGs también tienen cuenta, que crean al registrarse (I-3.1), para consultar y actualizar sus
+categorías. El token lleva el rol en el claim `rol` y, si es de una ONG,
 su CUIT en `ong_cuit`. Los tokens los emite `POST /login`; `flask token-servicio` sigue
 disponible para probar en desarrollo.
 """
@@ -31,6 +35,8 @@ class RolSistema(StrEnum):
 
 
 ROLES_DE_SERVICIO = (RolSistema.WEBAPP, RolSistema.BONITA, RolSistema.AUDITOR)
+# Quién puede invocar las operaciones del proceso: solo el orquestador
+ORQUESTADOR = RolSistema.BONITA
 
 
 def configurar_jwt(jwt: JWTManager) -> None:

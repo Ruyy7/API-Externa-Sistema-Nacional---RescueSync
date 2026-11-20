@@ -62,7 +62,7 @@ def actividad(
     }
 
 
-def informar(client, cuerpo: dict, rol: RolSistema = RolSistema.WEBAPP):
+def informar(client, cuerpo: dict, rol: RolSistema = RolSistema.BONITA):
     return client.post(ACTIVIDADES, json=cuerpo, headers=headers(rol))
 
 
@@ -87,7 +87,7 @@ def cantidad_de_actividades() -> int:
 def test_requiere_token_de_servicio_con_rol_que_escribe(client):
     comprometido(client)
     assert client.post(ACTIVIDADES, json=actividad()).status_code == 401
-    for rol in (RolSistema.AUDITOR, RolSistema.ONG):
+    for rol in (RolSistema.WEBAPP, RolSistema.AUDITOR, RolSistema.ONG):
         respuesta = informar(client, actividad(), rol)
         assert (respuesta.status_code, respuesta.json["codigo"]) == (403, "PROHIBIDO")
     assert informar(client, actividad(), RolSistema.BONITA).status_code == 201
@@ -436,7 +436,8 @@ def test_liberacion_y_cierre_validan_fecha_rol_y_emergencia(client):
     futura = {"fecha": (ahora() + timedelta(days=1)).isoformat()}
     for url in (f"{EMERGENCIA}/liberacion", f"{EMERGENCIA}/cierre"):
         assert client.post(url, json={}).status_code == 401
-        assert client.post(url, json={}, headers=headers(RolSistema.AUDITOR)).status_code == 403
+        for rol in (RolSistema.WEBAPP, RolSistema.AUDITOR):
+            assert client.post(url, json={}, headers=headers(rol)).status_code == 403
         respuesta = client.post(url, json=futura, headers=headers())
         assert (respuesta.status_code, respuesta.json["codigo"]) == (422, "FECHA_FUTURA")
     respuesta = client.post("/api/v1/emergencias/desconocida/cierre", json={}, headers=headers())

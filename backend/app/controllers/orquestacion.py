@@ -20,10 +20,10 @@ from app.schemas.orquestacion import (
     BloqueoResultadoSchema,
     DesbloqueoResultadoSchema,
 )
-from app.security import SEGURIDAD, RolSistema, roles_required
+from app.security import ORQUESTADOR, SEGURIDAD, roles_required
 from app.services import servicios
 
-BONITA = RolSistema.BONITA
+BONITA = ORQUESTADOR
 
 bp = Blueprint(
     "Orquestación",

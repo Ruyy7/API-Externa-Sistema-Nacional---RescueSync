@@ -18,7 +18,7 @@ from app.schemas.compromisos import (
     VerificacionEntradaSchema,
     VerificacionSchema,
 )
-from app.security import SEGURIDAD, RolSistema, roles_required
+from app.security import ORQUESTADOR, SEGURIDAD, RolSistema, roles_required
 from app.services import servicios
 
 WEBAPP, BONITA, AUDITOR = RolSistema.WEBAPP, RolSistema.BONITA, RolSistema.AUDITOR
@@ -37,7 +37,7 @@ def _errores(*codigos: int):
 
 @bp.route("/compromisos/verificacion")
 class Verificacion(MethodView):
-    @roles_required(WEBAPP, BONITA)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(VerificacionEntradaSchema)
     @bp.response(200, VerificacionSchema)
@@ -68,7 +68,7 @@ class Compromisos(MethodView):
         pagination_parameters.item_count = total
         return compromisos
 
-    @roles_required(WEBAPP)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(ReservaEntradaSchema)
     @bp.response(201, CompromisoSchema)
@@ -79,7 +79,8 @@ class Compromisos(MethodView):
     def post(self, datos):
         """Reserva (bloquea) los recursos de una oferta presentada
 
-        La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario
+        Reserva de a una oferta. El proceso usa `POST /emergencias/{ref}/bloqueo`, que valida y
+        reserva todas las ofertas de la convocatoria juntas. Bloquea las filas del inventario
         (SELECT ... FOR UPDATE), valida la disponibilidad y descuenta lo reservado, todo en una
         transacción: dos pedidos simultáneos nunca reservan más de lo que hay. Si no alcanza,
         responde 409 RECURSOS_INSUFICIENTES y no reserva nada.
@@ -98,13 +99,13 @@ class CompromisoPorId(MethodView):
         """Detalle de una reserva o compromiso"""
         return servicios().compromisos.obtener(compromiso_id)
 
-    @roles_required(WEBAPP)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(AjusteEntradaSchema)
     @bp.response(200, CompromisoSchema)
     @_errores(401, 403, 404, 409, 422)
     def put(self, datos, compromiso_id):
-        """Ajusta la reserva cuando la ONG modifica la oferta
+        """Ajusta una reserva a una oferta modificada
 
         Solo dentro de la ventana de ofertas. Lo que aumenta necesita disponibilidad; lo que baja o
         desaparece se libera. Si algo no alcanza, la reserva queda como estaba.
@@ -114,18 +115,18 @@ class CompromisoPorId(MethodView):
 
 @bp.route("/compromisos/<int:compromiso_id>/cancelacion")
 class Cancelacion(MethodView):
-    @roles_required(WEBAPP)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.response(200, CompromisoSchema)
     @_errores(401, 403, 404, 409)
     def post(self, compromiso_id):
-        """Cancela la reserva cuando la ONG retira la oferta y libera los recursos"""
+        """Cancela una reserva y libera sus recursos"""
         return servicios().compromisos.cancelar(compromiso_id)
 
 
 @bp.route("/compromisos/<int:compromiso_id>/confirmacion")
 class Confirmacion(MethodView):
-    @roles_required(WEBAPP, BONITA)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(ConfirmacionEntradaSchema)
     @bp.response(200, CompromisoSchema)
@@ -133,9 +134,9 @@ class Confirmacion(MethodView):
     def post(self, datos, compromiso_id):
         """Compromete lo adjudicado por el municipio
 
-        Lo llama la webapp al registrar la adjudicación, o Bonita desde la tarea *Comprometer
-        recursos*. Lo adjudicado pasa de bloqueado a comprometido y la diferencia de una
-        adjudicación parcial se libera en ese momento. Si ya terminó la ventana de adjudicación,
-        la reserva vence y responde 409 RESERVA_VENCIDA.
+        Compromete de a una reserva. El proceso usa `POST /emergencias/{ref}/adjudicacion`, que
+        compromete toda la adjudicación de la convocatoria junta. Lo adjudicado pasa de bloqueado
+        a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Si ya
+        terminó la ventana de adjudicación, la reserva vence y responde 409 RESERVA_VENCIDA.
         """
         return servicios().compromisos.confirmar(compromiso_id, datos)
