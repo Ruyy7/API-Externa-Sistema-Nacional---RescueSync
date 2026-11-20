@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "RescueSync · Sistema Nacional · I-3.5 Liberación y cierre",
-    "description": "Casos de prueba del punto I-3.5 (liberación y cierre). La guía con cada caso y su respuesta esperada está en `docs/postman/casos-de-prueba-i-3.5.md`.\n\n1. `base_url` apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. En la pestaña **Variables**, poner las contraseñas de las cuentas de servicio en `password_webapp`, `password_bonita` y `password_auditor` (no están en el repositorio).\n3. Correr la colección entera (*Run collection*) o los pedidos en orden desde la carpeta 0. Los logins guardan los tokens y cada pedido ya usa el que corresponde.\n\nCada corrida registra su propia ONG de prueba y agrega el sufijo `{{corrida}}` a las referencias, así se puede repetir sobre la misma base.",
+    "description": "**Desde el 19/11/2026 (orquestación por Bonita):** las operaciones del proceso las invoca solo Bonita, y la API solo las acepta con el token de la cuenta `bonita`. La cuenta `webapp` conserva las consultas. Esta colección prueba los endpoints de a una oferta; los que usa el proceso, por emergencia, están en la colección I-3.6.\n\nCasos de prueba del punto I-3.5 (liberación y cierre). La guía con cada caso y su respuesta esperada está en `docs/postman/casos-de-prueba-i-3.5.md`.\n\n1. `base_url` apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. En la pestaña **Variables**, poner las contraseñas de las cuentas de servicio en `password_webapp`, `password_bonita` y `password_auditor` (no están en el repositorio).\n3. Correr la colección entera (*Run collection*) o los pedidos en orden desde la carpeta 0. Los logins guardan los tokens y cada pedido ya usa el que corresponde.\n\nCada corrida registra su propia ONG de prueba y agrega el sufijo `{{corrida}}` a las referencias, así se puede repetir sobre la misma base.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -240,7 +240,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -545,7 +545,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -566,7 +566,7 @@
                 "actividades"
               ]
             },
-            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nLa webapp informa la actividad cuando la ONG la marca como finalizada [E-7]. Como el paramédico es reutilizable, la acción es LIBERADO: vuelven 3 al stock. Quedan 2 pendientes y el compromiso sigue COMPROMETIDO (todavía hay raciones en ejecución). Guarda el id en `actividad_1`.",
+            "description": "Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.\n\nBonita informa la actividad cuando la ONG la marca como finalizada en la webapp [E-7]. Como el paramédico es reutilizable, la acción es LIBERADO: vuelven 3 al stock. Quedan 2 pendientes y el compromiso sigue COMPROMETIDO (todavía hay raciones en ejecución). Guarda el id en `actividad_1`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"actividad_referencia\": \"ACT-1-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"tipo_recurso\": \"PARAMEDICO\",\n  \"cantidad\": 3,\n  \"fecha\": \"{{fecha_cumplida}}\",\n  \"observaciones\": \"Evacuación del barrio Norte terminada\"\n}",
@@ -710,14 +710,14 @@
           "response": []
         },
         {
-          "name": "1.3 Reintento: la webapp repite el mismo pedido",
+          "name": "1.3 Reintento: Bonita repite el mismo pedido",
           "request": {
             "auth": {
               "type": "bearer",
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -779,7 +779,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -841,7 +841,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -906,7 +906,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1068,7 +1068,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1198,7 +1198,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1257,7 +1257,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1316,7 +1316,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1378,7 +1378,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1437,7 +1437,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1496,7 +1496,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1556,7 +1556,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1618,7 +1618,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1678,7 +1678,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1739,7 +1739,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1801,7 +1801,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1863,7 +1863,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2395,7 +2395,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2514,7 +2514,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]

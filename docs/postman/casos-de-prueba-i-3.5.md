@@ -1,5 +1,7 @@
 # Casos de prueba de I-3.5 en Postman
 
+> **Desde el 19/11/2026 (orquestación por Bonita):** las operaciones del proceso las invoca solo Bonita, y la API solo las acepta con el token de la cuenta `bonita`. La cuenta `webapp` conserva las consultas. Esta colección prueba los endpoints de a una oferta; los que usa el proceso, por emergencia, están en la colección I-3.6.
+
 Liberación y cierre: las actividades cumplidas liberan lo comprometido a medida que la ONG las informa, y por emergencia se libera lo que quede y se cierra el proyecto. Todos los casos se generaron ejecutándolos contra la API: las respuestas de abajo son las reales. Lo que cambia en cada corrida se muestra así: las fechas como `<fecha y hora>`, los ids como `<id>`, los tokens como `<token>`, y el CUIT, el email y el sufijo de las referencias con el nombre de su variable (`{{ong_cuit}}`, `{{ong_email}}` y `{{corrida}}`).
 
 Los recursos se liberan en tres momentos:
@@ -33,8 +35,8 @@ docker compose exec api flask cuentas-servicio
 
 | Cuenta | Rol del token | Puede |
 |---|---|---|
-| `webapp` | `SISTEMA_WEBAPP` | Informar actividades, liberar la emergencia, cerrar el proyecto y consultar |
-| `bonita` | `SISTEMA_BONITA` | Lo mismo: *Liberar recursos* y *Cerrar proyecto* son tareas de servicio del proceso |
+| `webapp` | `SISTEMA_WEBAPP` | Solo consultar: las operaciones del proceso las invoca solo Bonita |
+| `bonita` | `SISTEMA_BONITA` | Informar actividades, liberar la emergencia, cerrar el proyecto y consultar |
 | `auditor` | `AUDITOR` | Solo consultar |
 
 **4. Ejecutar.**
@@ -249,7 +251,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 0.5 La ONG presenta la oferta 1: 5 paramédicos y 1000 raciones
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Reserva (bloquea) los recursos de una oferta presentada (punto I-3.4).
 - **Qué prueba este caso:** Es el punto 4. Deja la reserva de la oferta 1 en la convocatoria 1 de la emergencia 1 y guarda su id en `compromiso_1`. Lo que sigue en esta colección parte de acá.
 
@@ -529,9 +531,9 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 1.1 Terminaron 3 de los 5 paramédicos
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
-- **Qué prueba este caso:** La webapp informa la actividad cuando la ONG la marca como finalizada [E-7]. Como el paramédico es reutilizable, la acción es LIBERADO: vuelven 3 al stock. Quedan 2 pendientes y el compromiso sigue COMPROMETIDO (todavía hay raciones en ejecución). Guarda el id en `actividad_1`.
+- **Qué prueba este caso:** Bonita informa la actividad cuando la ONG la marca como finalizada en la webapp [E-7]. Como el paramédico es reutilizable, la acción es LIBERADO: vuelven 3 al stock. Quedan 2 pendientes y el compromiso sigue COMPROMETIDO (todavía hay raciones en ejecución). Guarda el id en `actividad_1`.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -656,10 +658,10 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ]
 ```
 
-### 1.3 Reintento: la webapp repite el mismo pedido
+### 1.3 Reintento: Bonita repite el mismo pedido
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** La misma `actividad_referencia` con los mismos datos es un reintento (por ejemplo, después de un timeout): responde 200 con la actividad ya registrada y no libera de nuevo.
 
@@ -718,7 +720,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 1.4 La misma referencia con otra cantidad
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** No es un reintento: la referencia ya se usó con otros datos. Nada cambia.
 
@@ -751,7 +753,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 1.5 Más paramédicos de los que quedan pendientes
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** Quedan 2 pendientes y se informan 3. Se rechaza con el detalle y no se libera nada; la base lo frenaría igual con el CHECK `cantidad_liberada <= cantidad_comprometida`.
 
@@ -786,7 +788,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 1.6 Se entregaron 500 raciones
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** La ración es consumible: la acción es CONSUMIDO. Quedan 300 pendientes.
 
@@ -916,7 +918,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 1.8 Terminaron los 2 paramédicos restantes
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** El ítem de paramédicos queda sin pendiente, pero el compromiso sigue COMPROMETIDO porque todavía tiene 300 raciones en ejecución: pasa a FINALIZADO recién cuando ningún ítem tiene pendiente.
 
@@ -1034,7 +1036,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.1 Medio paramédico
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** Las personas se cuentan en unidades enteras (la unidad de medida no admite decimales).
 
@@ -1071,7 +1073,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.2 Una fecha futura
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** La fecha de cumplimiento no puede ser posterior a ahora (hay 5 minutos de tolerancia de reloj). `fecha_futura` es mañana.
 
@@ -1104,7 +1106,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.3 Una categoría que no existe en el catálogo
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** Un código fuera del catálogo nacional indica un catálogo desalineado con la webapp, igual que en I-3.3.
 
@@ -1139,7 +1141,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.4 Una categoría sin compromiso en la emergencia
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** La ONG está inscripta en rescatistas, pero no comprometió ninguno en esta emergencia.
 
@@ -1174,7 +1176,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.5 Un CUIT que no está registrado
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** La ONG se identifica por CUIT en toda la API; uno desconocido es 422 ONG_INEXISTENTE, como en I-3.4.
 
@@ -1211,7 +1213,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.6 La ONG presenta la oferta 2: 4 rescatistas (queda reservada, sin adjudicar)
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Reserva (bloquea) los recursos de una oferta presentada (punto I-3.4).
 - **Qué prueba este caso:** Prepara el caso siguiente: una reserva en la convocatoria 2 de la misma emergencia que el municipio no adjudica. Guarda el id en `compromiso_2`.
 
@@ -1278,7 +1280,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.7 Una actividad sobre una reserva sin adjudicar
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** Solo se liberan recursos de un compromiso COMPROMETIDO. La reserva sigue RESERVADO y `cantidad_bloqueada` no se toca: eso es del punto 4.
 
@@ -1317,7 +1319,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.8 La ONG también va en un consorcio: oferta 3 con 2 paramédicos
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Reserva (bloquea) los recursos de una oferta presentada (punto I-3.4).
 - **Qué prueba este caso:** Prepara la ambigüedad: la misma ONG, la misma emergencia y la misma categoría en otra oferta. Guarda el id en `compromiso_consorcio`.
 
@@ -1384,7 +1386,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.9 El municipio adjudica la oferta del consorcio
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_consorcio}}/confirmacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Compromete lo adjudicado por el municipio (punto I-3.4): lo adjudicado pasa de bloqueado a comprometido y la diferencia se libera en ese momento.
 - **Qué prueba este caso:** Ahora la ONG tiene dos compromisos COMPROMETIDO con paramédicos en la emergencia.
 
@@ -1443,7 +1445,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.10 Una actividad de paramédicos sin decir de qué oferta
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** Hay dos compromisos posibles (la oferta 1 y la del consorcio): la API no adivina y lista las ofertas candidatas para reenviar el pedido con `oferta_referencia`.
 
@@ -1479,7 +1481,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.11 Con oferta_referencia de la oferta 1, que ya no tiene paramédicos pendientes
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** Desambiguar funciona, pero en la oferta 1 los 5 paramédicos ya se liberaron.
 
@@ -1515,7 +1517,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 2.12 Con oferta_referencia del consorcio: terminó 1 de los 2 paramédicos
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** Se libera del compromiso correcto. Queda 1 paramédico pendiente en el consorcio.
 
@@ -2094,7 +2096,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 4.2 Repetir el cierre
 
 - **Pedido:** `POST {{base_url}}/emergencias/EMG-1-{{corrida}}/cierre`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** *Cerrar proyecto* (tarea de servicio del proceso): registra el cierre solo si no queda nada comprometido; si queda, responde 409 RECURSOS_SIN_LIBERAR. Repetirlo devuelve el mismo cierre con 200.
 - **Qué prueba este caso:** Devuelve el mismo cierre con 200: la fecha es la de la primera llamada.
 
@@ -2221,7 +2223,7 @@ La carpeta 0 deja, con los endpoints de I-3.4, un compromiso COMPROMETIDO de 5 p
 ### 4.4 Una actividad después del cierre
 
 - **Pedido:** `POST {{base_url}}/actividades`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (*Bearer Token*)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (*Bearer Token*)
 - **Qué hace el endpoint:** Registra una actividad cumplida y libera sus recursos. Con el compromiso y la fila de inventario bloqueados (`SELECT ... FOR UPDATE`), descuenta la cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock. Es idempotente por `actividad_referencia`. Cuando al compromiso no le queda nada pendiente, pasa a FINALIZADO.
 - **Qué prueba este caso:** El proyecto terminó: no se aceptan más actividades para la emergencia.
 

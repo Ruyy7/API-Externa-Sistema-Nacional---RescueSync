@@ -1,0 +1,2346 @@
+{
+  "info": {
+    "name": "RescueSync · Sistema Nacional · I-3.6 Orquestación por Bonita",
+    "description": "Casos de prueba de las operaciones que invoca Bonita en cada tarea del proceso (orquestación). La guía con cada caso y su respuesta esperada está en `docs/postman/casos-de-prueba-i-3.6.md`, y el contrato, en `docs/08-orquestacion-bonita.md`.\n\nLa cátedra fijó que la validación de competencias, el bloqueo y compromiso de recursos y la liberación los invoque **solo Bonita**: la aplicación web no llama a la API en el proceso. Esta colección hace, en orden, lo que hacen los conectores de Bonita, con la cuenta `bonita`. La carpeta 7 muestra que la API rechaza a la cuenta `webapp` en todas esas operaciones.\n\n1. `base_url` apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. En la pestaña **Variables**, poner las contraseñas de las cuentas de servicio en `password_bonita` y `password_webapp` (no están en el repositorio: en Render son `CUENTA_BONITA_PASSWORD` y `CUENTA_WEBAPP_PASSWORD`; en local, las del `.env`). Guardar con Ctrl+S.\n3. Ejecutar toda la colección con **Run collection**, o los pedidos en orden (cada uno depende del anterior).\n\nCada corrida registra su propia ONG de prueba y usa referencias con un sufijo propio (`corrida`), así se puede repetir sobre la misma base sin limpiar nada. Las fechas se calculan solas antes de cada pedido.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1"
+    },
+    {
+      "key": "password_bonita",
+      "value": ""
+    },
+    {
+      "key": "password_webapp",
+      "value": ""
+    },
+    {
+      "key": "password_ong",
+      "value": "clave-segura-1"
+    },
+    {
+      "key": "token_bonita",
+      "value": ""
+    },
+    {
+      "key": "token_webapp",
+      "value": ""
+    },
+    {
+      "key": "token_ong",
+      "value": ""
+    },
+    {
+      "key": "corrida",
+      "value": ""
+    },
+    {
+      "key": "ong_cuit",
+      "value": ""
+    },
+    {
+      "key": "ong_email",
+      "value": ""
+    },
+    {
+      "key": "ong_id",
+      "value": ""
+    },
+    {
+      "key": "cierre_vencido",
+      "value": ""
+    },
+    {
+      "key": "limite_futuro",
+      "value": ""
+    },
+    {
+      "key": "fecha_cumplida",
+      "value": ""
+    },
+    {
+      "key": "fecha_cierre",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Fechas relativas al momento de la prueba",
+          "const minuto = 60 * 1000;",
+          "const hora = 60 * minuto;",
+          "const dia = 24 * hora;",
+          "const ahora = Date.now();",
+          "// Bonita valida cuando vence la ventana: el cierre ya pasó",
+          "pm.collectionVariables.set(\"cierre_vencido\", new Date(ahora - minuto).toISOString());",
+          "pm.collectionVariables.set(\"limite_futuro\", new Date(ahora + 7 * dia).toISOString());",
+          "",
+          "// Datos propios de cada corrida: un sufijo para las referencias, una ONG nueva con un CUIT",
+          "// válido y la fecha de cumplimiento de las actividades (fija en la corrida: un reintento manda",
+          "// el mismo cuerpo). Se generan en el primer pedido (o si faltan) y los demás usan los mismos.",
+          "if (!pm.collectionVariables.get(\"corrida\") || pm.info.requestName.startsWith(\"0.1 \")) {",
+          "    pm.collectionVariables.set(\"fecha_cumplida\", new Date(ahora - hora).toISOString());",
+          "    const corrida = Date.now().toString(36).toUpperCase();",
+          "    let base, resto;",
+          "    do {",
+          "        base = \"30\" + String(Math.floor(Math.random() * 1e8)).padStart(8, \"0\");",
+          "        const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];",
+          "        resto = [...base].reduce((s, d, i) => s + Number(d) * pesos[i], 0) % 11;",
+          "    } while (resto === 1);",
+          "    const verificador = resto === 0 ? 0 : 11 - resto;",
+          "    pm.collectionVariables.set(\"corrida\", corrida);",
+          "    pm.collectionVariables.set(\"ong_cuit\", `${base.slice(0, 2)}-${base.slice(2)}-${verificador}`);",
+          "    pm.collectionVariables.set(\"ong_email\", `postman-i36-${corrida.toLowerCase()}@ejemplo.org.ar`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Preparación: logins y ONG de prueba",
+      "description": "Inicia sesión con las cuentas `bonita` y `webapp` (los tokens se guardan solos) y registra una ONG de prueba nueva.",
+      "item": [
+        {
+          "name": "0.1 Login de la cuenta bonita",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "**POST /api/v1/login**\n\nInicio de sesión (I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.\n\nEs la cuenta con la que Bonita invoca todas las operaciones del proceso. Guarda el token en `token_bonita`. Si responde 401, falta la contraseña en la variable `password_bonita` o no es la correcta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"bonita\",\n  \"password\": \"{{password_bonita}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"rol = SISTEMA_BONITA\", function () {",
+                  "    pm.expect(json[\"rol\"]).to.eql(\"SISTEMA_BONITA\");",
+                  "});",
+                  "pm.test(\"token_type = Bearer\", function () {",
+                  "    pm.expect(json[\"token_type\"]).to.eql(\"Bearer\");",
+                  "});",
+                  "pm.collectionVariables.set(\"token_bonita\", json[\"access_token\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.2 Login de la cuenta webapp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "**POST /api/v1/login**\n\nInicio de sesión (I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.\n\nSolo para la carpeta 7: mostrar que la API rechaza a la webapp en las operaciones del proceso. Guarda el token en `token_webapp`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"webapp\",\n  \"password\": \"{{password_webapp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"rol = SISTEMA_WEBAPP\", function () {",
+                  "    pm.expect(json[\"rol\"]).to.eql(\"SISTEMA_WEBAPP\");",
+                  "});",
+                  "pm.collectionVariables.set(\"token_webapp\", json[\"access_token\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.3 Registrar la ONG de prueba de esta corrida",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs"
+              ]
+            },
+            "description": "**POST /api/v1/ongs**\n\nRegistro directo de una ONG (I-3.1): queda `HABILITADA` en el acto y cada categoría es una fila de su inventario, con el máximo como total. No pide token.\n\nCada corrida registra una ONG nueva, con un CUIT válido y un email que se generan solos, así las cuentas del inventario siempre dan lo mismo. Se inscribe en 10 paramédicos (reutilizables) y 2000 raciones (consumibles). Guarda el id en `ong_id`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razon_social\": \"Rescatistas de Prueba (Postman I-3.6)\",\n  \"cuit\": \"{{ong_cuit}}\",\n  \"email_contacto\": \"{{ong_email}}\",\n  \"telefono\": \"221 555-0106\",\n  \"password\": \"{{password_ong}}\",\n  \"categorias\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad_maxima\": 10\n    },\n    {\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad_maxima\": 2000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"estado = HABILITADA\", function () {",
+                  "    pm.expect(json[\"estado\"]).to.eql(\"HABILITADA\");",
+                  "});",
+                  "pm.collectionVariables.set(\"ong_id\", json[\"id\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.4 Inventario inicial de la ONG de prueba",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{{ong_id}}/recursos**\n\nInventario de una ONG por tipo de recurso: total, bloqueado, comprometido y disponible. Es público.\n\nPunto de partida: nada bloqueado ni comprometido."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueado 0.00, comprometido 0.00, disponible 10.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"0.00\", \"10.00\"]);",
+                  "});",
+                  "pm.test(\"RACION_ALIMENTO: bloqueado 0.00, comprometido 0.00, disponible 2000.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RACION_ALIMENTO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"0.00\", \"2000.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Validar ofertas: validar y bloquear",
+      "description": "Vence la ventana de la convocatoria: Bonita valida las ofertas y la API bloquea lo que acepta.",
+      "item": [
+        {
+          "name": "1.1 Bonita valida y bloquea las ofertas de la convocatoria 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nDos ofertas: la de la ONG de prueba (6 paramédicos y 800 raciones) y una de una ONG pendiente de habilitación. Respuesta no binaria: la primera se acepta y queda bloqueada; la segunda sale NO_HABILITADO con su motivo y no bloquea nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-1-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": [\n    {\n      \"oferta_referencia\": \"OF-1-{{corrida}}\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"LOTE-1\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad_requerida\": \"8\",\n          \"cantidad_ofrecida\": \"6\"\n        },\n        {\n          \"lote_referencia\": \"LOTE-2\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad_requerida\": \"1000\",\n          \"cantidad_ofrecida\": \"800\"\n        }\n      ]\n    },\n    {\n      \"oferta_referencia\": \"OF-2-{{corrida}}\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"LOTE-1\",\n          \"ong_cuit\": \"30-33333333-3\",\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad_requerida\": \"8\",\n          \"cantidad_ofrecida\": \"2\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"reservas = 1\", function () {",
+                  "    pm.expect(json[\"reservas\"]).to.eql(1);",
+                  "});",
+                  "pm.test(\"ofertas[0].nivel = TOTAL\", function () {",
+                  "    pm.expect(json[\"ofertas\"][0][\"nivel\"]).to.eql(\"TOTAL\");",
+                  "});",
+                  "pm.test(\"ofertas[0].items[0].cantidad_aceptada = 6.00\", function () {",
+                  "    pm.expect(json[\"ofertas\"][0][\"items\"][0][\"cantidad_aceptada\"]).to.eql(\"6.00\");",
+                  "});",
+                  "pm.test(\"ofertas[0].items[1].cantidad_aceptada = 800.00\", function () {",
+                  "    pm.expect(json[\"ofertas\"][0][\"items\"][1][\"cantidad_aceptada\"]).to.eql(\"800.00\");",
+                  "});",
+                  "pm.test(\"ofertas[1].items[0].nivel = NO_HABILITADO\", function () {",
+                  "    pm.expect(json[\"ofertas\"][1][\"items\"][0][\"nivel\"]).to.eql(\"NO_HABILITADO\");",
+                  "});",
+                  "pm.test(\"ofertas[1].items[0].cantidad_aceptada = 0.00\", function () {",
+                  "    pm.expect(json[\"ofertas\"][1][\"items\"][0][\"cantidad_aceptada\"]).to.eql(\"0.00\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Inventario después de validar: quedó bloqueado lo aceptado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{{ong_id}}/recursos**\n\nInventario de una ONG por tipo de recurso: total, bloqueado, comprometido y disponible. Es público.\n\nLo aceptado quedó bloqueado: ya no está disponible para otra emergencia."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueado 6.00, comprometido 0.00, disponible 4.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"6.00\", \"0.00\", \"4.00\"]);",
+                  "});",
+                  "pm.test(\"RACION_ALIMENTO: bloqueado 800.00, comprometido 0.00, disponible 1200.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RACION_ALIMENTO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"800.00\", \"0.00\", \"1200.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Reintento del conector: el mismo pedido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nSi Bonita reintenta la tarea, el pedido reemplaza los bloqueos de la convocatoria: no bloquea dos veces.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-1-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": [\n    {\n      \"oferta_referencia\": \"OF-1-{{corrida}}\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"LOTE-1\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad_requerida\": \"8\",\n          \"cantidad_ofrecida\": \"6\"\n        },\n        {\n          \"lote_referencia\": \"LOTE-2\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad_requerida\": \"1000\",\n          \"cantidad_ofrecida\": \"800\"\n        }\n      ]\n    },\n    {\n      \"oferta_referencia\": \"OF-2-{{corrida}}\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"LOTE-1\",\n          \"ong_cuit\": \"30-33333333-3\",\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad_requerida\": \"8\",\n          \"cantidad_ofrecida\": \"2\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"reservas = 1\", function () {",
+                  "    pm.expect(json[\"reservas\"]).to.eql(1);",
+                  "});",
+                  "pm.test(\"ofertas[0].items[0].cantidad_aceptada = 6.00\", function () {",
+                  "    pm.expect(json[\"ofertas\"][0][\"items\"][0][\"cantidad_aceptada\"]).to.eql(\"6.00\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 El inventario no cambió con el reintento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{{ong_id}}/recursos**\n\nInventario de una ONG por tipo de recurso: total, bloqueado, comprometido y disponible. Es público.\n\nSigue igual que en 1.2."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueado 6.00, comprometido 0.00, disponible 4.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"6.00\", \"0.00\", \"4.00\"]);",
+                  "});",
+                  "pm.test(\"RACION_ALIMENTO: bloqueado 800.00, comprometido 0.00, disponible 1200.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RACION_ALIMENTO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"800.00\", \"0.00\", \"1200.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 Una convocatoria sin ofertas también se valida",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-2-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-2-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-2-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nSi nadie ofertó, *Validar ofertas* corre igual: la lista vacía no bloquea nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-2-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-2-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"reservas = 0\", function () {",
+                  "    pm.expect(json[\"reservas\"]).to.eql(0);",
+                  "});",
+                  "pm.test(\"ofertas vacía\", function () {",
+                  "    pm.expect(json[\"ofertas\"]).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.6 Un tipo de recurso que no está en el catálogo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-2-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-2-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-2-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nUn código fuera del catálogo nacional indica un catálogo desalineado con la webapp: la API rechaza el pedido entero y no bloquea nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-2-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-2-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": [\n    {\n      \"oferta_referencia\": \"OF-3-{{corrida}}\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"LOTE-9\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"DRON\",\n          \"cantidad_requerida\": \"1\",\n          \"cantidad_ofrecida\": \"1\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = TIPO_RECURSO_DESCONOCIDO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"TIPO_RECURSO_DESCONOCIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Reabrir convocatoria: liberar los bloqueos y validar de nuevo",
+      "description": "La cobertura no alcanzó y el coordinador reabre (o reformula): Bonita libera los bloqueos y, cuando vence la nueva ventana, valida de nuevo.",
+      "item": [
+        {
+          "name": "2.1 Bonita libera los bloqueos al reabrir",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/desbloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "desbloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/desbloqueo**\n\nConector de *Reabrir convocatoria* y de *Reformular lotes*: libera los bloqueos que dejó la validación, porque las ofertas pueden cambiar. No toca lo comprometido. Si no hay nada bloqueado, responde 200 con 0.\n\nLa reserva de la oferta 1 se cancela y sus recursos vuelven a estar disponibles.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"reservas_canceladas = 1\", function () {",
+                  "    pm.expect(json[\"reservas_canceladas\"]).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Inventario después de liberar los bloqueos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{{ong_id}}/recursos**\n\nInventario de una ONG por tipo de recurso: total, bloqueado, comprometido y disponible. Es público.\n\nTodo vuelve a estar disponible."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueado 0.00, comprometido 0.00, disponible 10.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"0.00\", \"10.00\"]);",
+                  "});",
+                  "pm.test(\"RACION_ALIMENTO: bloqueado 0.00, comprometido 0.00, disponible 2000.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RACION_ALIMENTO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"0.00\", \"2000.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 Repetir el desbloqueo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/desbloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "desbloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/desbloqueo**\n\nConector de *Reabrir convocatoria* y de *Reformular lotes*: libera los bloqueos que dejó la validación, porque las ofertas pueden cambiar. No toca lo comprometido. Si no hay nada bloqueado, responde 200 con 0.\n\nNo queda nada bloqueado: responde 200 con 0. El conector nunca falla por eso.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"reservas_canceladas = 0\", function () {",
+                  "    pm.expect(json[\"reservas_canceladas\"]).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 Una emergencia que la API todavía no conoce",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-NUEVA-{{corrida}}/desbloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-NUEVA-{{corrida}}",
+                "desbloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-NUEVA-{{corrida}}/desbloqueo**\n\nConector de *Reabrir convocatoria* y de *Reformular lotes*: libera los bloqueos que dejó la validación, porque las ofertas pueden cambiar. No toca lo comprometido. Si no hay nada bloqueado, responde 200 con 0.\n\nSi la convocatoria se reformuló antes de la primera validación, la API no la conoce: también responde 200 con 0.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"reservas_canceladas = 0\", function () {",
+                  "    pm.expect(json[\"reservas_canceladas\"]).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.5 Vence la nueva ventana: Bonita valida la oferta modificada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nDurante la nueva ventana la ONG bajó su oferta a 5 paramédicos. La misma reserva vuelve a RESERVADO con lo nuevo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-1-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": [\n    {\n      \"oferta_referencia\": \"OF-1-{{corrida}}\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"LOTE-1\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad_requerida\": \"8\",\n          \"cantidad_ofrecida\": \"5\"\n        },\n        {\n          \"lote_referencia\": \"LOTE-2\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad_requerida\": \"1000\",\n          \"cantidad_ofrecida\": \"800\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"reservas = 1\", function () {",
+                  "    pm.expect(json[\"reservas\"]).to.eql(1);",
+                  "});",
+                  "pm.test(\"ofertas[0].items[0].cantidad_aceptada = 5.00\", function () {",
+                  "    pm.expect(json[\"ofertas\"][0][\"items\"][0][\"cantidad_aceptada\"]).to.eql(\"5.00\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Comprometer recursos",
+      "description": "El municipio adjudicó en la webapp: Bonita compromete lo adjudicado.",
+      "item": [
+        {
+          "name": "3.1 Adjudicar más de lo bloqueado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/adjudicacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "adjudicacion"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/adjudicacion**\n\n*Comprometer recursos*, tarea de servicio: Bonita le pide a la webapp lo que adjudicó el municipio y lo manda tal cual. La API compromete lo adjudicado y libera los bloqueos del resto, todo o nada. Repetir la misma adjudicación no cambia nada.\n\nSolo hay 5 paramédicos bloqueados: la adjudicación entera se rechaza, con el detalle por oferta y ONG, y no se compromete nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-1-{{corrida}}\",\n  \"adjudicaciones\": [\n    {\n      \"oferta_referencia\": \"OF-1-{{corrida}}\",\n      \"ong_cuit\": \"{{ong_cuit}}\",\n      \"items\": [\n        {\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad\": 6\n        },\n        {\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad\": 600\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 422 UNPROCESSABLE ENTITY\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = ADJUDICACION_INVALIDA\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"ADJUDICACION_INVALIDA\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 Bonita compromete lo adjudicado: 5 paramédicos y 600 raciones",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/adjudicacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "adjudicacion"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/adjudicacion**\n\n*Comprometer recursos*, tarea de servicio: Bonita le pide a la webapp lo que adjudicó el municipio y lo manda tal cual. La API compromete lo adjudicado y libera los bloqueos del resto, todo o nada. Repetir la misma adjudicación no cambia nada.\n\nAdjudicación parcial de las raciones: se comprometen 600 y las otras 200 bloqueadas se liberan en el momento.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-1-{{corrida}}\",\n  \"adjudicaciones\": [\n    {\n      \"oferta_referencia\": \"OF-1-{{corrida}}\",\n      \"ong_cuit\": \"{{ong_cuit}}\",\n      \"items\": [\n        {\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad\": 5\n        },\n        {\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad\": 600\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"compromisos[0].estado = COMPROMETIDO\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});",
+                  "pm.test(\"compromisos[0].items[0].cantidad_comprometida = 5.00\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"items\"][0][\"cantidad_comprometida\"]).to.eql(\"5.00\");",
+                  "});",
+                  "pm.test(\"compromisos[0].items[1].cantidad_comprometida = 600.00\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"items\"][1][\"cantidad_comprometida\"]).to.eql(\"600.00\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 Inventario después de comprometer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{{ong_id}}/recursos**\n\nInventario de una ONG por tipo de recurso: total, bloqueado, comprometido y disponible. Es público.\n\nLo adjudicado pasó de bloqueado a comprometido; las 200 raciones no adjudicadas volvieron a estar disponibles."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueado 0.00, comprometido 5.00, disponible 5.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"5.00\", \"5.00\"]);",
+                  "});",
+                  "pm.test(\"RACION_ALIMENTO: bloqueado 0.00, comprometido 600.00, disponible 1400.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RACION_ALIMENTO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"600.00\", \"1400.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.4 Reintento del conector: la misma adjudicación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/adjudicacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "adjudicacion"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/adjudicacion**\n\n*Comprometer recursos*, tarea de servicio: Bonita le pide a la webapp lo que adjudicó el municipio y lo manda tal cual. La API compromete lo adjudicado y libera los bloqueos del resto, todo o nada. Repetir la misma adjudicación no cambia nada.\n\nRepetir la misma adjudicación no cambia nada: el compromiso sigue igual y no hay más reservas que cancelar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-1-{{corrida}}\",\n  \"adjudicaciones\": [\n    {\n      \"oferta_referencia\": \"OF-1-{{corrida}}\",\n      \"ong_cuit\": \"{{ong_cuit}}\",\n      \"items\": [\n        {\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad\": 5\n        },\n        {\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad\": 600\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"compromisos[0].estado = COMPROMETIDO\", function () {",
+                  "    pm.expect(json[\"compromisos\"][0][\"estado\"]).to.eql(\"COMPROMETIDO\");",
+                  "});",
+                  "pm.test(\"reservas_canceladas = 0\", function () {",
+                  "    pm.expect(json[\"reservas_canceladas\"]).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Marcar actividad como finalizada",
+      "description": "Las ONGs informan actividades en la webapp: Bonita se las lleva a la API, que libera lo cumplido.",
+      "item": [
+        {
+          "name": "4.1 Bonita informa dos actividades",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "actividades"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/actividades**\n\nConectores de salida de *Marcar actividad como finalizada*: Bonita le pide a la webapp las actividades que la API todavía no le confirmó y las manda juntas. Cada una libera lo cumplido (lo reutilizable vuelve al stock, lo consumible se da de baja) y es idempotente por `actividad_referencia`.\n\nTerminaron 3 paramédicos (reutilizables: vuelven al stock) y se entregaron 600 raciones (consumibles: se dan de baja).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividades\": [\n    {\n      \"actividad_referencia\": \"ACT-1-{{corrida}}\",\n      \"ong_cuit\": \"{{ong_cuit}}\",\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 3,\n      \"fecha\": \"{{fecha_cumplida}}\",\n      \"observaciones\": \"Evacuación del barrio Norte terminada\"\n    },\n    {\n      \"actividad_referencia\": \"ACT-2-{{corrida}}\",\n      \"ong_cuit\": \"{{ong_cuit}}\",\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad\": 600,\n      \"fecha\": \"{{fecha_cumplida}}\",\n      \"observaciones\": \"Raciones entregadas en el centro de evacuados\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"nuevas = 2\", function () {",
+                  "    pm.expect(json[\"nuevas\"]).to.eql(2);",
+                  "});",
+                  "pm.test(\"actividades[0].accion = LIBERADO\", function () {",
+                  "    pm.expect(json[\"actividades\"][0][\"accion\"]).to.eql(\"LIBERADO\");",
+                  "});",
+                  "pm.test(\"actividades[1].accion = CONSUMIDO\", function () {",
+                  "    pm.expect(json[\"actividades\"][1][\"accion\"]).to.eql(\"CONSUMIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 Reintento del conector: las mismas actividades",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "actividades"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/actividades**\n\nConectores de salida de *Marcar actividad como finalizada*: Bonita le pide a la webapp las actividades que la API todavía no le confirmó y las manda juntas. Cada una libera lo cumplido (lo reutilizable vuelve al stock, lo consumible se da de baja) y es idempotente por `actividad_referencia`.\n\nLas actividades ya registradas no liberan dos veces: `nuevas` es 0.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividades\": [\n    {\n      \"actividad_referencia\": \"ACT-1-{{corrida}}\",\n      \"ong_cuit\": \"{{ong_cuit}}\",\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 3,\n      \"fecha\": \"{{fecha_cumplida}}\",\n      \"observaciones\": \"Evacuación del barrio Norte terminada\"\n    },\n    {\n      \"actividad_referencia\": \"ACT-2-{{corrida}}\",\n      \"ong_cuit\": \"{{ong_cuit}}\",\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad\": 600,\n      \"fecha\": \"{{fecha_cumplida}}\",\n      \"observaciones\": \"Raciones entregadas en el centro de evacuados\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"nuevas = 0\", function () {",
+                  "    pm.expect(json[\"nuevas\"]).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 Sin actividades nuevas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "actividades"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/actividades**\n\nConectores de salida de *Marcar actividad como finalizada*: Bonita le pide a la webapp las actividades que la API todavía no le confirmó y las manda juntas. Cada una libera lo cumplido (lo reutilizable vuelve al stock, lo consumible se da de baja) y es idempotente por `actividad_referencia`.\n\nCuando la webapp no tiene nada sin confirmar, la lista va vacía y no cambia nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividades\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"nuevas = 0\", function () {",
+                  "    pm.expect(json[\"nuevas\"]).to.eql(0);",
+                  "});",
+                  "pm.test(\"actividades vacía\", function () {",
+                  "    pm.expect(json[\"actividades\"]).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.4 Inventario después de las actividades",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{{ong_id}}/recursos**\n\nInventario de una ONG por tipo de recurso: total, bloqueado, comprometido y disponible. Es público.\n\n3 paramédicos volvieron al stock y las 600 raciones se dieron de baja (bajan el comprometido y el total)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueado 0.00, comprometido 2.00, disponible 8.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"2.00\", \"8.00\"]);",
+                  "});",
+                  "pm.test(\"RACION_ALIMENTO: bloqueado 0.00, comprometido 0.00, disponible 1400.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RACION_ALIMENTO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"0.00\", \"1400.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Liberar recursos",
+      "description": "Corroborados los lotes, Bonita libera lo que siga comprometido.",
+      "item": [
+        {
+          "name": "5.1 Bonita libera lo que quedó comprometido",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/liberacion**\n\n*Liberar recursos*, tarea de servicio: libera todo lo que siga comprometido en la emergencia (origen CIERRE) y finaliza esos compromisos. Es idempotente.\n\nQuedaban 2 paramédicos sin informar: se liberan igual, con origen CIERRE.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"liberaciones[0].cantidad = 2.00\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][0][\"cantidad\"]).to.eql(\"2.00\");",
+                  "});",
+                  "pm.test(\"liberaciones[0].origen = CIERRE\", function () {",
+                  "    pm.expect(json[\"liberaciones\"][0][\"origen\"]).to.eql(\"CIERRE\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 Repetir la liberación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/liberacion**\n\n*Liberar recursos*, tarea de servicio: libera todo lo que siga comprometido en la emergencia (origen CIERRE) y finaliza esos compromisos. Es idempotente.\n\nNo queda nada comprometido: no libera nada más.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"liberaciones vacía\", function () {",
+                  "    pm.expect(json[\"liberaciones\"]).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Cerrar proyecto",
+      "description": "Bonita registra el cierre en la API y se lo confirma a la webapp.",
+      "item": [
+        {
+          "name": "6.1 Bonita cierra el proyecto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/cierre",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "cierre"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/cierre**\n\n*Cerrar proyecto*, tarea de servicio: registra el cierre solo si no queda nada comprometido. Repetirlo devuelve el mismo cierre con 200. Después no se aceptan más operaciones del proceso para la emergencia.\n\nYa no queda nada comprometido. Guarda la fecha de cierre en `fecha_cierre`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"emergencia_referencia = EMG-1-{{corrida}}\", function () {",
+                  "    pm.expect(json[\"emergencia_referencia\"]).to.eql(pm.variables.replaceIn(\"EMG-1-{{corrida}}\"));",
+                  "});",
+                  "pm.collectionVariables.set(\"fecha_cierre\", json[\"fecha_cierre\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 Reintento del conector: cerrar otra vez",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/cierre",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "cierre"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/cierre**\n\n*Cerrar proyecto*, tarea de servicio: registra el cierre solo si no queda nada comprometido. Repetirlo devuelve el mismo cierre con 200. Después no se aceptan más operaciones del proceso para la emergencia.\n\nDevuelve el mismo cierre, con la misma fecha.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"fecha_cierre = {{fecha_cierre}}\", function () {",
+                  "    pm.expect(json[\"fecha_cierre\"]).to.eql(pm.variables.replaceIn(\"{{fecha_cierre}}\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 Validar después del cierre",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_bonita}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nUn proyecto cerrado no acepta más operaciones del proceso.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-1-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": [\n    {\n      \"oferta_referencia\": \"OF-1-{{corrida}}\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"LOTE-1\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad_requerida\": \"8\",\n          \"cantidad_ofrecida\": \"5\"\n        },\n        {\n          \"lote_referencia\": \"LOTE-2\",\n          \"ong_cuit\": \"{{ong_cuit}}\",\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad_requerida\": \"1000\",\n          \"cantidad_ofrecida\": \"800\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409 CONFLICT\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = PROYECTO_CERRADO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROYECTO_CERRADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Seguridad: solo Bonita invoca las operaciones del proceso",
+      "description": "Principio de orquestación: la API rechaza a la cuenta de la webapp en todas las operaciones del proceso, aunque el token sea válido. La webapp conserva las consultas.",
+      "item": [
+        {
+          "name": "7.1 La webapp no puede validar ni bloquear",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-2-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-2-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-2-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nToken válido de la webapp, pero la operación es del orquestador: 403.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-2-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-2-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = PROHIBIDO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.2 La webapp no puede comprometer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/adjudicacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "adjudicacion"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/adjudicacion**\n\n*Comprometer recursos*, tarea de servicio: Bonita le pide a la webapp lo que adjudicó el municipio y lo manda tal cual. La API compromete lo adjudicado y libera los bloqueos del resto, todo o nada. Repetir la misma adjudicación no cambia nada.\n\nLo mismo con el compromiso.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-1-{{corrida}}\",\n  \"adjudicaciones\": [\n    {\n      \"oferta_referencia\": \"OF-1-{{corrida}}\",\n      \"ong_cuit\": \"{{ong_cuit}}\",\n      \"items\": [\n        {\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad\": 5\n        },\n        {\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad\": 600\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = PROHIBIDO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.3 La webapp no puede informar actividades",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/actividades",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "actividades"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/actividades**\n\nConectores de salida de *Marcar actividad como finalizada*: Bonita le pide a la webapp las actividades que la API todavía no le confirmó y las manda juntas. Cada una libera lo cumplido (lo reutilizable vuelve al stock, lo consumible se da de baja) y es idempotente por `actividad_referencia`.\n\nLo mismo con las actividades.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actividades\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = PROHIBIDO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.4 La webapp no puede liberar recursos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/liberacion",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "liberacion"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/liberacion**\n\n*Liberar recursos*, tarea de servicio: libera todo lo que siga comprometido en la emergencia (origen CIERRE) y finaliza esos compromisos. Es idempotente.\n\nLo mismo con la liberación.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = PROHIBIDO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.5 La webapp no puede cerrar el proyecto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-1-{{corrida}}/cierre",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-1-{{corrida}}",
+                "cierre"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-1-{{corrida}}/cierre**\n\n*Cerrar proyecto*, tarea de servicio: registra el cierre solo si no queda nada comprometido. Repetirlo devuelve el mismo cierre con 200. Después no se aceptan más operaciones del proceso para la emergencia.\n\nLo mismo con el cierre.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = PROHIBIDO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.6 La webapp sí puede consultar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_webapp}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/compromisos?emergencia=EMG-1-{{corrida}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "compromisos"
+              ],
+              "query": [
+                {
+                  "key": "emergencia",
+                  "value": "EMG-1-{{corrida}}"
+                }
+              ]
+            },
+            "description": "**GET /api/v1/compromisos**\n\nConsulta de compromisos, con filtros. La aceptan las cuentas de servicio y el auditor.\n\nLas consultas no son operaciones del proceso: la webapp las conserva. El compromiso de la oferta 1 quedó FINALIZADO."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"[0].estado = FINALIZADO\", function () {",
+                  "    pm.expect(json[0][\"estado\"]).to.eql(\"FINALIZADO\");",
+                  "});",
+                  "pm.test(\"[0].oferta_referencia = OF-1-{{corrida}}\", function () {",
+                  "    pm.expect(json[0][\"oferta_referencia\"]).to.eql(pm.variables.replaceIn(\"OF-1-{{corrida}}\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.7 Sin token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-2-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-2-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-2-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nSin token no se invoca nada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-2-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-2-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401 UNAUTHORIZED\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = NO_AUTENTICADO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"NO_AUTENTICADO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.8 Login de la ONG de prueba",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "login"
+              ]
+            },
+            "description": "**POST /api/v1/login**\n\nInicio de sesión (I-3.1). Devuelve un JWT con el rol de la cuenta en el claim `rol`. No pide token.\n\nPara el caso siguiente. Guarda el token en `token_ong`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"{{ong_email}}\",\n  \"password\": \"{{password_ong}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"rol = ONG\", function () {",
+                  "    pm.expect(json[\"rol\"]).to.eql(\"ONG\");",
+                  "});",
+                  "pm.collectionVariables.set(\"token_ong\", json[\"access_token\"]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.9 La ONG no puede bloquear con su propio token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_ong}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/emergencias/EMG-2-{{corrida}}/bloqueo",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "emergencias",
+                "EMG-2-{{corrida}}",
+                "bloqueo"
+              ]
+            },
+            "description": "**POST /api/v1/emergencias/EMG-2-{{corrida}}/bloqueo**\n\n*Validar ofertas*, la tarea de servicio que corre cuando vence la ventana de la convocatoria. Bonita le pide a la webapp el JSON de ofertas y lo manda tal cual: la API valida cada línea por niveles de competencia (total, parcial o no habilitada, con su motivo y el rol sugerido) y **bloquea lo que acepta**, todo en una transacción con `SELECT … FOR UPDATE`. Repetirlo reemplaza los bloqueos de la convocatoria.\n\nLas ONGs ofertan en la webapp; las operaciones del proceso las invoca Bonita.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"convocatoria_referencia\": \"CONV-2-{{corrida}}\",\n  \"emergencia_referencia\": \"EMG-2-{{corrida}}\",\n  \"fecha_cierre\": \"{{cierre_vencido}}\",\n  \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\",\n  \"ofertas\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403 FORBIDDEN\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"codigo = PROHIBIDO\", function () {",
+                  "    pm.expect(json[\"codigo\"]).to.eql(\"PROHIBIDO\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Estado final",
+      "description": "Cómo quedó la ONG de prueba.",
+      "item": [
+        {
+          "name": "8.1 Inventario final de la ONG de prueba",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/ongs/{{ong_id}}/recursos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ongs",
+                "{{ong_id}}",
+                "recursos"
+              ]
+            },
+            "description": "**GET /api/v1/ongs/{{ong_id}}/recursos**\n\nInventario de una ONG por tipo de recurso: total, bloqueado, comprometido y disponible. Es público.\n\nLos paramédicos volvieron todos al stock; de las raciones quedan 1400, porque se consumieron 600."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test(\"PARAMEDICO: bloqueado 0.00, comprometido 0.00, disponible 10.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"PARAMEDICO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"0.00\", \"10.00\"]);",
+                  "});",
+                  "pm.test(\"RACION_ALIMENTO: bloqueado 0.00, comprometido 0.00, disponible 1400.00\", function () {",
+                  "    const fila = json.find(f => f.tipo_recurso.codigo === \"RACION_ALIMENTO\");",
+                  "    pm.expect([fila.cantidad_bloqueada, fila.cantidad_comprometida, fila.cantidad_disponible])",
+                  "        .to.eql([\"0.00\", \"0.00\", \"1400.00\"]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Casos de prueba de I-3.4 en Postman
 
+> **Desde el 19/11/2026 (orquestación por Bonita):** las operaciones del proceso las invoca solo Bonita, y la API solo las acepta con el token de la cuenta `bonita`. La cuenta `webapp` conserva las consultas. Esta colección prueba los endpoints de a una oferta; los que usa el proceso, por emergencia, están en la colección I-3.6.
+
 Bloqueo y compromiso de recursos con locking en PostgreSQL. Todos los casos se generaron ejecutándolos contra la API: las respuestas de abajo son las reales. Lo que cambia en cada corrida se muestra así: las fechas como `<fecha y hora>`, los ids de la ONG y de los compromisos como `<id>`, los tokens como `<token>`, y el CUIT, el email y el sufijo de las referencias con el nombre de su variable (`{{ong_cuit}}`, `{{ong_email}}` y `{{corrida}}`).
 
 Los recursos se bloquean en dos momentos:
@@ -32,8 +34,8 @@ docker compose exec api flask cuentas-servicio
 
 | Cuenta | Rol del token | Puede |
 |---|---|---|
-| `webapp` | `SISTEMA_WEBAPP` | Verificar, reservar, ajustar, cancelar, adjudicar y cambiar fechas de convocatorias |
-| `bonita` | `SISTEMA_BONITA` | Verificar, adjudicar y cambiar fechas de convocatorias |
+| `webapp` | `SISTEMA_WEBAPP` | Solo consultar: las operaciones del proceso las invoca solo Bonita |
+| `bonita` | `SISTEMA_BONITA` | Verificar, reservar, ajustar, cancelar, adjudicar y cambiar fechas de convocatorias |
 | `auditor` | `AUDITOR` | Solo consultar |
 
 **4. Ejecutar.**
@@ -323,7 +325,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 1.1 Verificar un pedido con resultados distintos por ítem
 
 - **Pedido:** `POST {{base_url}}/compromisos/verificacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Valida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).
 - **Qué prueba este caso:** Respuesta no binaria: un ítem alcanza, otro alcanza en parte y otro no tiene disponibilidad. No bloquea nada.
 
@@ -382,7 +384,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 1.2 Verificar con una ONG pendiente de habilitación
 
 - **Pedido:** `POST {{base_url}}/compromisos/verificacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Valida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).
 - **Qué prueba este caso:** Usa Ayuda en Registro (CUIT 30-33333333-3), que los datos de demostración cargan como pendiente. La verificación informa que la ONG no está habilitada (no es un error).
 
@@ -421,7 +423,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 1.3 Verificar con un CUIT que no está registrado
 
 - **Pedido:** `POST {{base_url}}/compromisos/verificacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Valida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -457,7 +459,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 1.4 Verificar una categoría que no existe en el catálogo
 
 - **Pedido:** `POST {{base_url}}/compromisos/verificacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Valida las restricciones de un pedido **sin bloquear nada**: ONG registrada y habilitada, categorías del catálogo, cantidades enteras cuando la unidad no admite decimales y disponibilidad por ítem (`DISPONIBLE`, `PARCIAL` o `SIN_DISPONIBILIDAD`).
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -571,8 +573,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.1 La ONG presenta la oferta 101: reservar 8 paramédicos y 4 rescatistas
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 - **Qué prueba este caso:** Se bloquean los recursos. Guarda el id en `compromiso_101`.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -719,8 +721,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.3 Reintento: la misma oferta con el mismo pedido
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 - **Qué prueba este caso:** Idempotencia: responde 200 (no 201) con el mismo compromiso y no reserva dos veces.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -796,8 +798,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.4 La misma oferta con otro pedido
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 - **Qué prueba este caso:** Para cambiar una reserva se usa el PUT del paso 3.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -837,8 +839,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.5 La misma ONG ofrece los mismos paramédicos en otra emergencia
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 - **Qué prueba este caso:** El caso central del punto 4: quedan 2 paramédicos libres y se piden 5. No se reserva nada.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -883,8 +885,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.6 Una ONG pendiente de habilitación no puede reservar
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 - **Qué prueba este caso:** Ayuda en Registro, la ONG pendiente de los datos de demostración.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -923,8 +925,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.7 Un CUIT que no está registrado
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -966,8 +968,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.8 Medio paramédico
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 - **Qué prueba este caso:** Las personas no se fraccionan: la unidad PERSONA no admite decimales.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -1014,8 +1016,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.9 Una convocatoria con la ventana de ofertas ya cerrada
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -1053,8 +1055,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.10 Una categoría en la que la ONG no está inscripta
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 - **Qué prueba este caso:** La ONG no tiene raciones registradas: su disponible es 0.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -1099,8 +1101,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.11 Falta un campo obligatorio
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -1136,8 +1138,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 2.12 La fecha límite de adjudicación es anterior al cierre
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -1184,7 +1186,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 3.1 La ONG modifica la oferta 101: 6 paramédicos y 50 frazadas
 
 - **Pedido:** `PUT {{base_url}}/compromisos/{{compromiso_101}}`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** La ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.
 - **Qué prueba este caso:** Bajan los paramédicos, se agregan frazadas y desaparecen los rescatistas.
 
@@ -1324,7 +1326,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 3.3 Modificar pidiendo más de lo disponible
 
 - **Pedido:** `PUT {{base_url}}/compromisos/{{compromiso_101}}`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** La ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.
 - **Qué prueba este caso:** Aumentar de 6 a 11 necesita 5 más y hay 4 libres. La reserva queda como estaba.
 
@@ -1362,8 +1364,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 3.4 La oferta 202 de la otra emergencia ahora sí entra (4 paramédicos)
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 - **Qué prueba este caso:** Guarda el id en `compromiso_202`.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -1427,7 +1429,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 3.5 La ONG retira la oferta 202
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_202}}/cancelacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** La ONG retira la oferta: la reserva se cancela y los recursos vuelven a estar disponibles.
 
 **Respuesta esperada: `200 OK`**
@@ -1470,7 +1472,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 3.6 Retirarla otra vez
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_202}}/cancelacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** La ONG retira la oferta: la reserva se cancela y los recursos vuelven a estar disponibles.
 - **Qué prueba este caso:** Idempotencia: un reintento responde 200 y no libera dos veces.
 
@@ -1585,7 +1587,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 3.8 Modificar un compromiso que no existe
 
 - **Pedido:** `PUT {{base_url}}/compromisos/999999`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** La ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -1671,7 +1673,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_101}}/confirmacion`
 - **Token (pestaña Authorization):** `{{token_auditor}}` (AUDITOR)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -1700,7 +1702,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_101}}/confirmacion`
 - **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -1739,7 +1741,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_101}}/confirmacion`
 - **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -1778,7 +1780,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_101}}/confirmacion`
 - **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
 - **Qué prueba este caso:** Si una oferta no se adjudica, su reserva vence sola al terminar la ventana.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -1808,7 +1810,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_101}}/confirmacion`
 - **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
 - **Qué prueba este caso:** Las frazadas no se nombran: se adjudican en 0 y se liberan.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -1940,12 +1942,12 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ]
 ```
 
-### 4.8 La webapp repite la misma adjudicación
+### 4.8 Bonita repite la misma adjudicación
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_101}}/confirmacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
-- **Qué prueba este caso:** Idempotencia: la webapp o Bonita pueden reintentar sin comprometer dos veces.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
+- **Qué prueba este caso:** Idempotencia: Bonita puede reintentar sin comprometer dos veces.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -2009,7 +2011,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_101}}/confirmacion`
 - **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -2040,7 +2042,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 4.10 La ONG intenta retirar una oferta ya adjudicada
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_101}}/cancelacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** La ONG retira la oferta: la reserva se cancela y los recursos vuelven a estar disponibles.
 
 **Respuesta esperada: `409 CONFLICT`**
@@ -2059,7 +2061,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 4.11 La ONG intenta modificar una oferta ya adjudicada
 
 - **Pedido:** `PUT {{base_url}}/compromisos/{{compromiso_101}}`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** La ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -2093,8 +2095,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 5.1 Oferta 404: reservar 1 rescatista en la convocatoria 4
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -2157,7 +2159,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 5.2 Cierra la ventana de ofertas de la convocatoria 4 (la de adjudicación sigue abierta)
 
 - **Pedido:** `PUT {{base_url}}/convocatorias/CONV-4-{{corrida}}`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Reabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -2183,7 +2185,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 5.3 Ya no se puede modificar la oferta
 
 - **Pedido:** `PUT {{base_url}}/compromisos/{{compromiso_404}}`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** La ONG modifica la oferta dentro de la ventana: la reserva pasa a ser la nueva. Lo que aumenta necesita disponibilidad; lo que baja o desaparece se libera.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -2215,7 +2217,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_404}}/confirmacion`
 - **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -2270,8 +2272,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 5.5 Oferta 303: reservar 2 rescatistas en la convocatoria 3
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -2334,7 +2336,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 5.6 Termina también la ventana de adjudicación de la convocatoria 3
 
 - **Pedido:** `PUT {{base_url}}/convocatorias/CONV-3-{{corrida}}`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Reabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -2361,7 +2363,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos/{{compromiso_303}}/confirmacion`
 - **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
-- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).
+- **Qué hace el endpoint:** **Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).
 - **Qué prueba este caso:** La reserva vence en ese momento y sus recursos se liberan.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -2506,7 +2508,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 5.10 Fechas incoherentes al reabrir
 
 - **Pedido:** `PUT {{base_url}}/convocatorias/CONV-3-{{corrida}}`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Reabrir la convocatoria con fechas nuevas: las reservas vigentes pasan a vencer con la nueva fecha límite de adjudicación.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -2573,8 +2575,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 6.1 Oferta 505: reservar 10 frazadas en la convocatoria 5
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -2637,7 +2639,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 6.2 Reformular la convocatoria 5: sus reservas pasan a la 5B
 
 - **Pedido:** `POST {{base_url}}/convocatorias/CONV-5-{{corrida}}/reformulacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Reformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -2712,7 +2714,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 6.4 Repetir la reformulación
 
 - **Pedido:** `POST {{base_url}}/convocatorias/CONV-5-{{corrida}}/reformulacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Reformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.
 - **Qué prueba este caso:** Idempotencia: ya no queda nada por mover.
 
@@ -2745,7 +2747,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 ### 6.5 Reformular hacia la misma convocatoria
 
 - **Pedido:** `POST {{base_url}}/convocatorias/CONV-5B-{{corrida}}/reformulacion`
-- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
 - **Qué hace el endpoint:** Reformular la convocatoria: sus reservas vigentes pasan a la convocatoria nueva, que hereda la emergencia.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
@@ -3238,7 +3240,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos`
 - **Token (pestaña Authorization):** ninguno (*No Auth*)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -3275,7 +3277,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos`
 - **Token (pestaña Authorization):** un token inválido (`no-es-un-token`)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -3308,11 +3310,12 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 }
 ```
 
-### 8.3 Bonita no puede reservar
+### 8.3 La webapp no puede reservar
 
 - **Pedido:** `POST {{base_url}}/compromisos`
-- **Token (pestaña Authorization):** `{{token_bonita}}` (SISTEMA_BONITA)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Token (pestaña Authorization):** `{{token_webapp}}` (SISTEMA_WEBAPP)
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Qué prueba este caso:** Principio de orquestación: la API rechaza a la cuenta de la webapp en las operaciones del proceso, aunque el token sea válido.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -3349,7 +3352,7 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos`
 - **Token (pestaña Authorization):** `{{token_auditor}}` (AUDITOR)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
@@ -3429,8 +3432,8 @@ Los casos 1.2 y 2.6 usan *Ayuda en Registro* (CUIT `30-33333333-3`), la ONG pend
 
 - **Pedido:** `POST {{base_url}}/compromisos`
 - **Token (pestaña Authorization):** `{{token_ong}}` (ONG)
-- **Qué hace el endpoint:** **Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
-- **Qué prueba este caso:** Las reservas las pide la webapp en nombre de la ONG, no la ONG directamente.
+- **Qué hace el endpoint:** **Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.
+- **Qué prueba este caso:** Las reservas las pide Bonita, el orquestador, no la ONG directamente.
 
 **Body** (pestaña *Body* → *raw* → *JSON*):
 
