@@ -63,6 +63,34 @@ class CompromisoRepository:
         )
         return db.session.scalar(consulta)
 
+    def de_convocatoria(
+        self, convocatoria_id: int, *, bloquear_filas: bool = False
+    ) -> list[Compromiso]:
+        """Compromisos de la convocatoria, en cualquier estado y en orden de id. Con
+        bloquear_filas, SELECT ... FOR UPDATE (operaciones en lote de Bonita)."""
+        consulta = (
+            select(Compromiso)
+            .where(Compromiso.convocatoria_id == convocatoria_id)
+            .order_by(Compromiso.id)
+        )
+        if bloquear_filas:
+            return bloquear(consulta)
+        return list(db.session.scalars(consulta))
+
+    def ofertas_de_otra_convocatoria(
+        self, ofertas: Collection[str], convocatoria_id: int
+    ) -> list[str]:
+        """Referencias de oferta que ya tienen un compromiso en otra convocatoria."""
+        consulta = (
+            select(Compromiso.oferta_referencia)
+            .where(
+                Compromiso.oferta_referencia.in_(ofertas),
+                Compromiso.convocatoria_id != convocatoria_id,
+            )
+            .distinct()
+        )
+        return sorted(db.session.scalars(consulta))
+
     def ids_vencidos(
         self,
         momento: datetime,

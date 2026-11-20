@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from flask_jwt_extended import create_access_token
 from sqlalchemy import select
 
 from app.extensions import db
@@ -24,6 +23,7 @@ from app.models import (
     RolSugerido,
     TipoRecurso,
 )
+from app.security import RolSistema, emitir_token
 from app.services.validaciones import evaluar_linea
 
 RIO, PENDIENTE = "30-11111111-1", "30-33333333-3"
@@ -55,7 +55,7 @@ def test_evaluar_linea(ofrecida, requerida, habilitada, impedimento, esperado):
 @pytest.fixture
 def auth(app):
     with app.app_context():
-        return {"Authorization": f"Bearer {create_access_token(identity='bonita')}"}
+        return {"Authorization": f"Bearer {emitir_token('bonita', RolSistema.BONITA)}"}
 
 
 def _item(cuit, tipo, ofrecida, requerida="5", lote="LOTE-1"):
@@ -85,6 +85,16 @@ def _validar(client, auth, pedido):
 
 def test_requiere_jwt(client):
     assert client.post(URL, json=_pedido([_item(RIO, "PARAMEDICO", "1")])).status_code == 401
+
+
+@pytest.mark.parametrize("rol", [RolSistema.WEBAPP, RolSistema.AUDITOR, RolSistema.ONG])
+def test_solo_valida_la_cuenta_de_bonita(client, app, rol):
+    """La validación de competencias la invoca solo el orquestador (pauta de la cátedra)."""
+    with app.app_context():
+        token = emitir_token("otro", rol)
+    pedido = _pedido([_item(RIO, "PARAMEDICO", "1")])
+    respuesta = client.post(URL, json=pedido, headers={"Authorization": f"Bearer {token}"})
+    assert (respuesta.status_code, respuesta.json["codigo"]) == (403, "PROHIBIDO")
 
 
 def test_acepta_parcialmente_sin_rechazar_la_oferta(client, auth):

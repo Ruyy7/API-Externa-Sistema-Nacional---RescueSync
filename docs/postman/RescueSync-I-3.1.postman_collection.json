@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "RescueSync · Sistema Nacional · I-3.1 Login y registro de ONGs",
-    "description": "Casos de prueba del punto I-3.1: registro directo de ONGs con sus categorías y login con JWT.\n\n1. `base_url` ya apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. Para los casos con la cuenta de servicio, poner en `password_webapp` la contraseña de `CUENTA_WEBAPP_PASSWORD` (en Render: Environment del servicio).\n3. Ejecutar los pedidos en orden, o toda la colección con **Run collection**.\n\nCada corrida genera un CUIT válido y un email nuevos (`cuit_nuevo`, `email_nuevo`), así se puede repetir contra la misma base sin que el registro choque con uno anterior.\n\nSi la API está en el plan gratuito de Render, el primer pedido puede tardar cerca de un minuto: el servicio se \"duerme\" cuando no se usa.",
+    "description": "**Desde el 19/11/2026 (orquestación por Bonita):** las operaciones del proceso las invoca solo Bonita, y la API solo las acepta con el token de la cuenta `bonita`. La cuenta `webapp` conserva las consultas. Esta colección prueba los endpoints de a una oferta; los que usa el proceso, por emergencia, están en la colección I-3.6.\n\nCasos de prueba del punto I-3.1: registro directo de ONGs con sus categorías y login con JWT.\n\n1. `base_url` ya apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. Para los casos con la cuenta de servicio, poner en `password_bonita` la contraseña de `CUENTA_BONITA_PASSWORD` (en Render: Environment del servicio).\n3. Ejecutar los pedidos en orden, o toda la colección con **Run collection**.\n\nCada corrida genera un CUIT válido y un email nuevos (`cuit_nuevo`, `email_nuevo`), así se puede repetir contra la misma base sin que el registro choque con uno anterior.\n\nSi la API está en el plan gratuito de Render, el primer pedido puede tardar cerca de un minuto: el servicio se \"duerme\" cuando no se usa.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -14,7 +14,7 @@
       "value": "clave-segura-1"
     },
     {
-      "key": "password_webapp",
+      "key": "password_bonita",
       "value": ""
     },
     {
@@ -30,7 +30,7 @@
       "value": ""
     },
     {
-      "key": "token_webapp",
+      "key": "token_bonita",
       "value": ""
     }
   ],
@@ -418,7 +418,7 @@
       "name": "2. Cuenta de servicio y roles",
       "item": [
         {
-          "name": "2.1 Login de la webapp (cuenta de servicio)",
+          "name": "2.1 Login de Bonita (cuenta de servicio)",
           "request": {
             "method": "POST",
             "header": [
@@ -439,10 +439,10 @@
                 "login"
               ]
             },
-            "description": "Las cuentas de servicio son `webapp`, `bonita` y `auditor`. Sus contraseñas salen de las variables de entorno del servicio. Se guarda el token en `token_webapp`.",
+            "description": "Las cuentas de servicio son `webapp`, `bonita` y `auditor`. Sus contraseñas salen de las variables de entorno del servicio. Las operaciones del proceso, como la validación del caso siguiente, solo las acepta la cuenta `bonita`. Se guarda el token en `token_bonita`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"usuario\": \"webapp\",\n  \"password\": \"{{password_webapp}}\"\n}",
+              "raw": "{\n  \"usuario\": \"bonita\",\n  \"password\": \"{{password_bonita}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -460,8 +460,8 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "const token = pm.response.json();",
-                  "pm.test(\"Rol SISTEMA_WEBAPP\", () => pm.expect(token.rol).to.eql(\"SISTEMA_WEBAPP\"));",
-                  "pm.collectionVariables.set(\"token_webapp\", token.access_token);"
+                  "pm.test(\"Rol SISTEMA_BONITA\", () => pm.expect(token.rol).to.eql(\"SISTEMA_BONITA\"));",
+                  "pm.collectionVariables.set(\"token_bonita\", token.access_token);"
                 ]
               }
             }
@@ -482,7 +482,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -496,7 +496,7 @@
                 "validaciones"
               ]
             },
-            "description": "**POST /api/v1/validaciones** (I-3.3) con el token de la webapp. Las categorías del registro son lo que lee la validación: 6 paramédicos salen `TOTAL`, y las raciones salen `NO_INSCRIPTA` porque la ONG no se inscribió en esa categoría.",
+            "description": "**POST /api/v1/validaciones** (I-3.3) con el token de Bonita. Las categorías del registro son lo que lee la validación: 6 paramédicos salen `TOTAL`, y las raciones salen `NO_INSCRIPTA` porque la ONG no se inscribió en esa categoría.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"convocatoria_referencia\": \"CONV-POSTMAN\",\n  \"ofertas\": [\n    {\n      \"oferta_referencia\": \"OF-POSTMAN\",\n      \"items\": [\n        {\n          \"lote_referencia\": \"L1\",\n          \"ong_cuit\": \"{{cuit_nuevo}}\",\n          \"tipo_recurso\": \"PARAMEDICO\",\n          \"cantidad_ofrecida\": \"6\",\n          \"cantidad_requerida\": \"6\"\n        },\n        {\n          \"lote_referencia\": \"L2\",\n          \"ong_cuit\": \"{{cuit_nuevo}}\",\n          \"tipo_recurso\": \"RACION_ALIMENTO\",\n          \"cantidad_ofrecida\": \"100\",\n          \"cantidad_requerida\": \"100\"\n        }\n      ]\n    }\n  ]\n}",
@@ -584,7 +584,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -599,7 +599,7 @@
                 "yo"
               ]
             },
-            "description": "`/ongs/yo` es solo para cuentas de ONG: con el token de la webapp responde **403**."
+            "description": "`/ongs/yo` es solo para cuentas de ONG: con el token de Bonita responde **403**."
           },
           "event": [
             {

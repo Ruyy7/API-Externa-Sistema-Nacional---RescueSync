@@ -14,7 +14,7 @@ from app.schemas.convocatorias import (
     ReformulacionEntradaSchema,
     ReformulacionSchema,
 )
-from app.security import SEGURIDAD, RolSistema, roles_required
+from app.security import ORQUESTADOR, SEGURIDAD, RolSistema, roles_required
 from app.services import servicios
 
 WEBAPP, BONITA, AUDITOR = RolSistema.WEBAPP, RolSistema.BONITA, RolSistema.AUDITOR
@@ -41,7 +41,7 @@ class ConvocatoriaPorReferencia(MethodView):
         """Fechas de una convocatoria"""
         return servicios().convocatorias.obtener(referencia)
 
-    @roles_required(WEBAPP, BONITA)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(FechasConvocatoriaSchema)
     @bp.response(200, ConvocatoriaSchema)
@@ -57,7 +57,7 @@ class ConvocatoriaPorReferencia(MethodView):
 
 @bp.route("/convocatorias/<string:referencia>/reformulacion")
 class Reformulacion(MethodView):
-    @roles_required(WEBAPP, BONITA)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(ReformulacionEntradaSchema)
     @bp.response(200, ReformulacionSchema)

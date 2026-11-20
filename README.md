@@ -56,6 +56,8 @@ POST /api/v1/login                 # I-3.1, devuelve el JWT
 POST /api/v1/ongs                  # I-3.1, registro directo de una ONG
 GET  /api/v1/ongs/yo               # I-3.1, token de ONG
 PUT  /api/v1/ongs/yo/categorias    # I-3.1, token de ONG
+GET  /api/v1/ongs/cuit/{cuit}      # inventario de una ONG, token de webapp o auditor
+PUT  /api/v1/ongs/cuit/{cuit}/categorias  # topes de una ONG en su nombre, token de webapp
 ```
 
 ## Login y registro de ONGs (I-3.1)
@@ -67,7 +69,7 @@ Las cuentas de servicio (`webapp`, `bonita` y `auditor`) se crean con las contra
 docker compose exec api flask cuentas-servicio
 ```
 
-Después se pide el token con `POST /api/v1/login` (`{"usuario": "webapp", "password": "..."}`) y
+Después se pide el token con `POST /api/v1/login` (`{"usuario": "bonita", "password": "..."}`) y
 se pega en **Authorize** del Swagger. Las ONGs se registran con `POST /api/v1/ongs` y entran con su
 email. Contrato, decisiones y colección de Postman: `docs/06-login-y-registro.md`.
 
@@ -82,23 +84,23 @@ GET /api/v1/recursos/disponibilidad?solo_ongs_habilitadas=false
 ## Bloqueo y compromiso de recursos (I-3.4)
 
 ```text
-POST /api/v1/compromisos/verificacion             valida restricciones sin reservar (webapp)
-POST /api/v1/compromisos                          reserva al presentar la oferta (webapp)
-PUT  /api/v1/compromisos/{id}                     ajusta la reserva al modificar la oferta (webapp)
-POST /api/v1/compromisos/{id}/cancelacion         libera la reserva al retirar la oferta (webapp)
-POST /api/v1/compromisos/{id}/confirmacion        compromete lo adjudicado (webapp o Bonita)
+POST /api/v1/compromisos/verificacion             valida restricciones sin reservar
+POST /api/v1/compromisos                          reserva una oferta
+PUT  /api/v1/compromisos/{id}                     ajusta la reserva de una oferta modificada
+POST /api/v1/compromisos/{id}/cancelacion         cancela una reserva y libera sus recursos
+POST /api/v1/compromisos/{id}/confirmacion        compromete lo adjudicado
 GET  /api/v1/compromisos y /api/v1/compromisos/{id}
 GET  /api/v1/convocatorias/{referencia}
 PUT  /api/v1/convocatorias/{referencia}           fechas nuevas al reabrir
 POST /api/v1/convocatorias/{referencia}/reformulacion
 ```
 
-Estos endpoints exigen un token con el rol de la cuenta de servicio (`SISTEMA_WEBAPP`,
-`SISTEMA_BONITA` o `AUDITOR`), que se pide en `POST /api/v1/login`. Para desarrollo también se
-puede emitir uno directamente:
+Las escrituras solo las acepta la cuenta de Bonita (`SISTEMA_BONITA`): son operaciones del proceso,
+y las invoca solo el orquestador. Las consultas aceptan también `SISTEMA_WEBAPP` y `AUDITOR`. El
+token se pide en `POST /api/v1/login`. Para desarrollo también se puede emitir uno directamente:
 
 ```bash
-docker compose exec api flask token-servicio SISTEMA_WEBAPP
+docker compose exec api flask token-servicio SISTEMA_BONITA
 ```
 
 Las reservas no adjudicadas vencen al terminar la ventana de adjudicación de su convocatoria. Cada
@@ -115,7 +117,7 @@ Render, están en `docs/postman/casos-de-prueba-i-3.4.md`.
 ## Liberación y cierre (I-3.5)
 
 ```text
-POST /api/v1/actividades                           la ONG cumplió una actividad: libera esa cantidad (webapp o Bonita)
+POST /api/v1/actividades                           la ONG cumplió una actividad: libera esa cantidad (Bonita)
 GET  /api/v1/actividades y /api/v1/actividades/{id} historial de actividades y liberaciones
 GET  /api/v1/emergencias/{ref}/liberacion          qué queda por liberar; todo_liberado para Bonita
 POST /api/v1/emergencias/{ref}/liberacion          libera lo que quede en la emergencia (Liberar recursos)
@@ -206,3 +208,10 @@ Ver `docs/01-catalogo-y-consulta.md` para las decisiones del punto I-3.2,
 `docs/02-reservas-y-compromisos.md` para la preparación del modelo de I-3.4,
 `docs/04-bloqueo-y-compromiso.md` para su implementación y `docs/07-liberacion-y-cierre.md`
 para la liberación y el cierre (I-3.5).
+
+**Orquestación por Bonita:** la validación, el bloqueo, el compromiso y la liberación los invoca
+solo Bonita, nunca la webapp, y la API lo hace cumplir: esas operaciones solo aceptan el token de la
+cuenta `bonita`. Qué llama el proceso en cada tarea, los contratos y el cambio del bloqueo (de la
+presentación de la oferta a la validación) están en `docs/08-orquestacion-bonita.md`. La colección
+de Postman `docs/postman/RescueSync-I-3.6.postman_collection.json` recorre esas operaciones en orden,
+con su guía en `docs/postman/casos-de-prueba-i-3.6.md`.

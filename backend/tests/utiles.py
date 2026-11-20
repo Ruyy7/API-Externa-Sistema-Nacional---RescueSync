@@ -20,7 +20,9 @@ PENDIENTE = "30-33333333-3"
 URL = "/api/v1/compromisos"
 
 
-def headers(rol: RolSistema = RolSistema.WEBAPP) -> dict:
+def headers(rol: RolSistema = RolSistema.BONITA) -> dict:
+    """Token de una cuenta de servicio. Por defecto, la de Bonita: es la única que invoca las
+    operaciones del proceso."""
     return {"Authorization": f"Bearer {emitir_token('tests', rol)}"}
 
 

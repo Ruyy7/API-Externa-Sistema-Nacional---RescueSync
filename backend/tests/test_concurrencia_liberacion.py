@@ -49,14 +49,14 @@ def test_dos_actividades_no_liberan_mas_de_lo_pendiente(app, client):
     la segunda lo toma, relee el ítem (ya con 3 liberados) y ve que no alcanza.
     """
     comprometido(client)
-    webapp = headers()
+    bonita = headers()
 
     respuestas = _escalonados(
         app,
         inventario("PARAMEDICO").id,
         [
-            (ACTIVIDADES, actividad("ACT-1", cantidad=3), webapp),
-            (ACTIVIDADES, actividad("ACT-2", cantidad=3), webapp),
+            (ACTIVIDADES, actividad("ACT-1", cantidad=3), bonita),
+            (ACTIVIDADES, actividad("ACT-2", cantidad=3), bonita),
         ],
     )
 
@@ -67,11 +67,11 @@ def test_dos_actividades_no_liberan_mas_de_lo_pendiente(app, client):
 
 
 def test_el_mismo_pedido_en_paralelo_libera_una_sola_vez(app, client):
-    """La webapp reintenta antes de recibir la respuesta: el segundo encuentra la actividad."""
+    """Bonita reintenta antes de recibir la respuesta: el segundo encuentra la actividad."""
     comprometido(client)
-    cuerpo, webapp = actividad(cantidad=3), headers()
+    cuerpo, bonita = actividad(cantidad=3), headers()
 
-    respuestas = _escalonados(app, inventario("PARAMEDICO").id, [(ACTIVIDADES, cuerpo, webapp)] * 2)
+    respuestas = _escalonados(app, inventario("PARAMEDICO").id, [(ACTIVIDADES, cuerpo, bonita)] * 2)
 
     assert [r.status_code for r in respuestas] == [201, 200]
     assert respuestas[0].json["id"] == respuestas[1].json["id"]

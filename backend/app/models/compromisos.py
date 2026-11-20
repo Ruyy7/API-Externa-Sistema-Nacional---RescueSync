@@ -59,9 +59,14 @@ class Convocatoria(ConMarcasDeTiempo, db.Model):
 class Compromiso(ConMarcasDeTiempo, ConCicloDeVida, db.Model):
     """Reserva/compromiso de una ONG dentro de una oferta de RescueSync.
 
-    Ciclo de vida (patrón State): RESERVADO cuando la ONG presenta la oferta; COMPROMETIDO cuando
-    el municipio la adjudica; CANCELADO si la ONG la retira; VENCIDO si termina la ventana de
+    Ciclo de vida (patrón State): RESERVADO cuando se bloquean los recursos de la oferta;
+    COMPROMETIDO cuando el municipio la adjudica; CANCELADO si el bloqueo se libera (la oferta se
+    retira, no se adjudica, o el coordinador reabre o reformula); VENCIDO si termina la ventana de
     adjudicación sin adjudicarla. FINALIZADO lo usa la liberación (I-3.5).
+
+    Un bloqueo cancelado o vencido puede volver a RESERVADO: pasa cuando Bonita valida de nuevo
+    la misma oferta después de una reapertura. Es la misma fila porque hay un solo compromiso por
+    oferta y ONG.
     """
 
     __tablename__ = "compromiso"
@@ -96,8 +101,9 @@ class Compromiso(ConMarcasDeTiempo, ConCicloDeVida, db.Model):
             EstadoCompromiso.VENCIDO,
         },
         EstadoCompromiso.COMPROMETIDO: {EstadoCompromiso.FINALIZADO},
-        EstadoCompromiso.CANCELADO: set(),
-        EstadoCompromiso.VENCIDO: set(),
+        # Una nueva validación de la misma oferta la vuelve a bloquear (convocatoria reabierta)
+        EstadoCompromiso.CANCELADO: {EstadoCompromiso.RESERVADO},
+        EstadoCompromiso.VENCIDO: {EstadoCompromiso.RESERVADO},
         EstadoCompromiso.FINALIZADO: set(),
     }
     # Columna que registra cuándo ocurrió cada transición (la exigen los CHECK de la tabla)

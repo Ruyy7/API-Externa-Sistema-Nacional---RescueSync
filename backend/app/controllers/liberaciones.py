@@ -18,7 +18,7 @@ from app.schemas.liberaciones import (
     EstadoEmergenciaSchema,
     LiberacionEmergenciaSchema,
 )
-from app.security import SEGURIDAD, RolSistema, roles_required
+from app.security import ORQUESTADOR, SEGURIDAD, RolSistema, roles_required
 from app.services import servicios
 
 WEBAPP, BONITA, AUDITOR = RolSistema.WEBAPP, RolSistema.BONITA, RolSistema.AUDITOR
@@ -61,7 +61,7 @@ class Actividades(MethodView):
         pagination_parameters.item_count = total
         return actividades
 
-    @roles_required(WEBAPP, BONITA)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(ActividadEntradaSchema)
     @bp.response(201, ActividadSchema)
@@ -74,11 +74,12 @@ class Actividades(MethodView):
     def post(self, datos):
         """Registra una actividad cumplida y libera sus recursos
 
-        La webapp lo llama cuando la ONG marca una actividad como finalizada: para esta
-        emergencia, esta ONG y esta categoría, tantos recursos terminaron su tarea en tal fecha.
-        Con el compromiso y la fila de inventario bloqueados (SELECT ... FOR UPDATE), descuenta
-        esa cantidad de lo comprometido: lo reutilizable vuelve a estar disponible y lo consumible
-        sale del stock. Cuando no queda nada pendiente, el compromiso pasa a FINALIZADO.
+        Registra de a una actividad. El proceso usa `POST /emergencias/{ref}/actividades`, que
+        recibe todas las que la webapp todavía no tiene confirmadas. Para esta emergencia, esta
+        ONG y esta categoría, tantos recursos terminaron su tarea en tal fecha. Con el compromiso
+        y la fila de inventario bloqueados (SELECT ... FOR UPDATE), descuenta esa cantidad de lo
+        comprometido: lo reutilizable vuelve a estar disponible y lo consumible sale del stock.
+        Cuando no queda nada pendiente, el compromiso pasa a FINALIZADO.
         """
         actividad, es_nueva = servicios().liberaciones.registrar_actividad(
             datos, get_jwt_identity()
@@ -112,7 +113,7 @@ class LiberacionDeEmergencia(MethodView):
         """
         return servicios().liberaciones.estado_de_emergencia(referencia)
 
-    @roles_required(WEBAPP, BONITA)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(CierreEntradaSchema)
     @bp.response(200, LiberacionEmergenciaSchema)
@@ -130,7 +131,7 @@ class LiberacionDeEmergencia(MethodView):
 
 @bp.route("/emergencias/<string:referencia>/cierre")
 class CierreDeEmergencia(MethodView):
-    @roles_required(WEBAPP, BONITA)
+    @roles_required(ORQUESTADOR)
     @bp.doc(security=SEGURIDAD)
     @bp.arguments(CierreEntradaSchema)
     @bp.response(201, CierreProyectoSchema)

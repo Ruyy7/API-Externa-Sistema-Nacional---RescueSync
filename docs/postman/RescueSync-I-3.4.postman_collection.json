@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "RescueSync · Sistema Nacional · I-3.4 Bloqueo y compromiso",
-    "description": "Casos de prueba del punto I-3.4 (control de concurrencia y bloqueo). La guía con cada caso y su respuesta esperada está en `docs/postman/casos-de-prueba-i-3.4.md`.\n\n1. `base_url` apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. En la pestaña **Variables**, poner las contraseñas de las cuentas de servicio en `password_webapp`, `password_bonita` y `password_auditor` (no están en el repositorio: en Render son `CUENTA_WEBAPP_PASSWORD`, `CUENTA_BONITA_PASSWORD` y `CUENTA_AUDITOR_PASSWORD`; en local, las del `.env`). Guardar con Ctrl+S.\n3. Ejecutar toda la colección con **Run collection**, o los pedidos en orden (cada uno depende del anterior).\n\nLa carpeta 0 inicia sesión con las tres cuentas (los tokens se guardan solos) y registra una ONG de prueba nueva. Cada corrida genera su CUIT, su email y un sufijo (`corrida`) para las referencias de ofertas, convocatorias y emergencias, así se puede repetir sobre la misma base sin limpiar nada. Las fechas se calculan solas antes de cada pedido.",
+    "description": "**Desde el 19/11/2026 (orquestación por Bonita):** las operaciones del proceso las invoca solo Bonita, y la API solo las acepta con el token de la cuenta `bonita`. La cuenta `webapp` conserva las consultas. Esta colección prueba los endpoints de a una oferta; los que usa el proceso, por emergencia, están en la colección I-3.6.\n\nCasos de prueba del punto I-3.4 (control de concurrencia y bloqueo). La guía con cada caso y su respuesta esperada está en `docs/postman/casos-de-prueba-i-3.4.md`.\n\n1. `base_url` apunta a la API publicada (https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1). Para probar en local, cambiarla en la pestaña **Variables** a `http://localhost:5001/api/v1`.\n2. En la pestaña **Variables**, poner las contraseñas de las cuentas de servicio en `password_webapp`, `password_bonita` y `password_auditor` (no están en el repositorio: en Render son `CUENTA_WEBAPP_PASSWORD`, `CUENTA_BONITA_PASSWORD` y `CUENTA_AUDITOR_PASSWORD`; en local, las del `.env`). Guardar con Ctrl+S.\n3. Ejecutar toda la colección con **Run collection**, o los pedidos en orden (cada uno depende del anterior).\n\nLa carpeta 0 inicia sesión con las tres cuentas (los tokens se guardan solos) y registra una ONG de prueba nueva. Cada corrida genera su CUIT, su email y un sufijo (`corrida`) para las referencias de ofertas, convocatorias y emergencias, así se puede repetir sobre la misma base sin limpiar nada. Las fechas se calculan solas antes de cada pedido.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -410,7 +410,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -481,7 +481,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -543,7 +543,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -602,7 +602,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -712,7 +712,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -726,7 +726,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nSe bloquean los recursos. Guarda el id en `compromiso_101`.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nSe bloquean los recursos. Guarda el id en `compromiso_101`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-101-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-1-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 8\n    },\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 4\n    }\n  ]\n}",
@@ -831,7 +831,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -845,7 +845,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nIdempotencia: responde 200 (no 201) con el mismo compromiso y no reserva dos veces.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nIdempotencia: responde 200 (no 201) con el mismo compromiso y no reserva dos veces.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-101-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-1-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 8\n    },\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 4\n    }\n  ]\n}",
@@ -892,7 +892,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -906,7 +906,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nPara cambiar una reserva se usa el PUT del paso 3.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nPara cambiar una reserva se usa el PUT del paso 3.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-101-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-1-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-1-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 9\n    }\n  ]\n}",
@@ -950,7 +950,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -964,7 +964,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nEl caso central del punto 4: quedan 2 paramédicos libres y se piden 5. No se reserva nada.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nEl caso central del punto 4: quedan 2 paramédicos libres y se piden 5. No se reserva nada.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-202-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-2-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-2-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    }\n  ]\n}",
@@ -1014,7 +1014,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1028,7 +1028,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nAyuda en Registro, la ONG pendiente de los datos de demostración.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nAyuda en Registro, la ONG pendiente de los datos de demostración.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-301-{{corrida}}\",\n  \"ong_cuit\": \"30-33333333-3\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-9-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-9-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -1072,7 +1072,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1086,7 +1086,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-302-{{corrida}}\",\n  \"ong_cuit\": \"30-99999999-9\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-9-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-9-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -1130,7 +1130,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1144,7 +1144,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nLas personas no se fraccionan: la unidad PERSONA no admite decimales.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nLas personas no se fraccionan: la unidad PERSONA no admite decimales.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-303-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-9-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-9-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1.5\n    }\n  ]\n}",
@@ -1188,7 +1188,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1202,7 +1202,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-304-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-8-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-8-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_pasado}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -1246,7 +1246,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1260,7 +1260,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nLa ONG no tiene raciones registradas: su disponible es 0.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nLa ONG no tiene raciones registradas: su disponible es 0.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-305-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-9-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-9-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RACION_ALIMENTO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -1307,7 +1307,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1321,7 +1321,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-306-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -1365,7 +1365,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1379,7 +1379,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-307-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-9-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-9-{{corrida}}\",\n    \"fecha_cierre\": \"{{limite_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{cierre_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -1428,7 +1428,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1552,7 +1552,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1617,7 +1617,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1631,7 +1631,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nGuarda el id en `compromiso_202`.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nGuarda el id en `compromiso_202`.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-202-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-2-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-2-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 4\n    }\n  ]\n}",
@@ -1676,7 +1676,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1727,7 +1727,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1824,7 +1824,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -1963,7 +1963,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    }\n  ]\n}",
@@ -2023,7 +2023,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 7\n    }\n  ]\n}",
@@ -2083,7 +2083,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -2143,7 +2143,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).\n\nSi una oferta no se adjudica, su reserva vence sola al terminar la ventana.",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).\n\nSi una oferta no se adjudica, su reserva vence sola al terminar la ventana.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 0\n    }\n  ]\n}",
@@ -2203,7 +2203,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).\n\nLas frazadas no se nombran: se adjudican en 0 y se liberan.",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).\n\nLas frazadas no se nombran: se adjudican en 0 y se liberan.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    }\n  ]\n}",
@@ -2293,7 +2293,7 @@
           ]
         },
         {
-          "name": "4.8 La webapp repite la misma adjudicación",
+          "name": "4.8 Bonita repite la misma adjudicación",
           "request": {
             "method": "POST",
             "header": [
@@ -2307,7 +2307,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2323,7 +2323,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).\n\nIdempotencia: la webapp o Bonita pueden reintentar sin comprometer dos veces.",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).\n\nIdempotencia: Bonita puede reintentar sin comprometer dos veces.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 5\n    }\n  ]\n}",
@@ -2383,7 +2383,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 4\n    }\n  ]\n}",
@@ -2427,7 +2427,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2478,7 +2478,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2542,7 +2542,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2556,7 +2556,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-404-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-4-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-4-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -2601,7 +2601,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2663,7 +2663,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2738,7 +2738,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -2782,7 +2782,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2796,7 +2796,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-303-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-3-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-3-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 2\n    }\n  ]\n}",
@@ -2841,7 +2841,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -2916,7 +2916,7 @@
                 "confirmacion"
               ]
             },
-            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo llama la webapp (pantalla de adjudicación) o Bonita (tarea *Comprometer recursos*).\n\nLa reserva vence en ese momento y sus recursos se liberan.",
+            "description": "**POST /api/v1/compromisos/{id}/confirmacion**\n\n**Adjudicación (compromiso nacional).** El municipio adjudicó la oferta: lo adjudicado pasa de bloqueado a comprometido y la diferencia de una adjudicación parcial se libera en ese momento. Lo invoca solo Bonita. En el proceso, la tarea *Comprometer recursos* usa `POST /emergencias/{ref}/adjudicacion`, que compromete toda la adjudicación junta (colección I-3.6).\n\nLa reserva vence en ese momento y sus recursos se liberan.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"items\": [\n    {\n      \"tipo_recurso\": \"RESCATISTA\",\n      \"cantidad\": 2\n    }\n  ]\n}",
@@ -3056,7 +3056,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -3223,7 +3223,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -3237,7 +3237,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-505-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-5-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-5-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"FRAZADA\",\n      \"cantidad\": 10\n    }\n  ]\n}",
@@ -3282,7 +3282,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -3401,7 +3401,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -3461,7 +3461,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_webapp}}",
+                  "value": "{{token_bonita}}",
                   "type": "string"
                 }
               ]
@@ -3931,7 +3931,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-801-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-8-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-8-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -3989,7 +3989,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-801-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-8-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-8-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -4019,7 +4019,7 @@
           ]
         },
         {
-          "name": "8.3 Bonita no puede reservar",
+          "name": "8.3 La webapp no puede reservar",
           "request": {
             "method": "POST",
             "header": [
@@ -4033,7 +4033,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{token_bonita}}",
+                  "value": "{{token_webapp}}",
                   "type": "string"
                 }
               ]
@@ -4047,7 +4047,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nPrincipio de orquestación: la API rechaza a la cuenta de la webapp en las operaciones del proceso, aunque el token sea válido.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-801-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-8-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-8-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -4105,7 +4105,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-801-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-8-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-8-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",
@@ -4257,7 +4257,7 @@
                 "compromisos"
               ]
             },
-            "description": "**POST /api/v1/compromisos**\n\n**Bloqueo al ofertar.** La webapp lo llama cuando la ONG presenta la oferta. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nLas reservas las pide la webapp en nombre de la ONG, no la ONG directamente.",
+            "description": "**POST /api/v1/compromisos**\n\n**Reserva de una oferta.** Lo invoca solo Bonita. En el proceso, la reserva se hace al validar, con todas las ofertas de la convocatoria juntas (`POST /emergencias/{ref}/bloqueo`, colección I-3.6); este endpoint reserva de a una. Bloquea las filas del inventario con `SELECT … FOR UPDATE`, valida la disponibilidad y la descuenta, todo en una transacción: si un ítem no alcanza, no se reserva nada. Es idempotente por oferta + ONG.\n\nLas reservas las pide Bonita, el orquestador, no la ONG directamente.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"oferta_referencia\": \"OF-801-{{corrida}}\",\n  \"ong_cuit\": \"{{ong_cuit}}\",\n  \"convocatoria\": {\n    \"referencia\": \"CONV-8-{{corrida}}\",\n    \"emergencia_referencia\": \"EMG-8-{{corrida}}\",\n    \"fecha_cierre\": \"{{cierre_futuro}}\",\n    \"fecha_limite_adjudicacion\": \"{{limite_futuro}}\"\n  },\n  \"items\": [\n    {\n      \"tipo_recurso\": \"PARAMEDICO\",\n      \"cantidad\": 1\n    }\n  ]\n}",

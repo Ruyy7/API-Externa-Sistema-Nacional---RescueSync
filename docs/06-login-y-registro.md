@@ -70,10 +70,11 @@ El `GET` devuelve la ONG del token con sus categorías. El `PUT` recibe `{"categ
 |---|---|---|---|---|---|
 | `POST /login`, `POST /ongs`, consultas de I-3.2 | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `GET /ongs/yo`, `PUT /ongs/yo/categorias` | 401 | ✓ | 403 | 403 | 403 |
-| Compromisos y convocatorias (I-3.4) | 401 | 403 | según I-3.4 | según I-3.4 | según I-3.4 |
-| `POST /validaciones` (I-3.3) | 401 | ✓ | ✓ | ✓ | ✓ |
+| Operaciones del proceso: validar, compromisos, convocatorias, actividades, liberación y cierre (escritura) | 401 | 403 | 403 | ✓ | 403 |
+| Las mismas, consulta | 401 | 403 | ✓ | ✓ | ✓ |
+| `GET /ongs/cuit/{cuit}` y `PUT …/categorias` (inventario, fuera del proceso) | 401 | 403 | ✓ | 403 | solo `GET` |
 
-`POST /validaciones` acepta cualquier token válido, incluido el de una ONG. No se cambió para no romper sus tests, que usan tokens sin rol. Como solo lee, no es un riesgo; queda como sugerencia restringirlo a las cuentas de servicio.
+Desde el 20/11/2026, las operaciones del proceso solo las acepta la cuenta `bonita`: la cátedra fijó que las invoque exclusivamente Bonita (`docs/08-orquestacion-bonita.md`). `POST /validaciones`, que antes aceptaba cualquier token, también quedó solo para Bonita.
 
 ## Cuentas de servicio
 
@@ -89,6 +90,6 @@ El `GET` devuelve la ONG del token con sus categorías. El `PUT` recibe `{"categ
 ## Cómo probarlo
 
 - **API publicada:** https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1 (Swagger en https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1/docs).
-- **Postman:** importar `docs/postman/RescueSync-I-3.1.postman_collection.json`, que ya apunta a la API publicada (para probar en local, cambiar `base_url` a `http://localhost:5001/api/v1`), poner la contraseña de `webapp` en `password_webapp` y correrla entera. Cada corrida usa un CUIT válido y un email nuevos, así se puede repetir sobre la misma base. Se verificó con Newman, en local y contra la API publicada (17/10): 11 pedidos y 21 verificaciones sin fallas.
+- **Postman:** importar `docs/postman/RescueSync-I-3.1.postman_collection.json`, que ya apunta a la API publicada (para probar en local, cambiar `base_url` a `http://localhost:5001/api/v1`), poner la contraseña de `bonita` en `password_bonita` y correrla entera. Cada corrida usa un CUIT válido y un email nuevos, así se puede repetir sobre la misma base. Se verificó con Newman, en local y contra la API publicada (17/10): 11 pedidos y 21 verificaciones sin fallas.
 - **Swagger:** `/api/v1/docs`. Para los endpoints protegidos, pedir el token en `POST /login` y pegarlo en **Authorize**.
 - **Tests:** `docker compose run --rm api pytest tests/test_registro_y_login.py`.

@@ -166,14 +166,14 @@ def test_una_cuenta_inactiva_no_entra(client):
 
 
 def test_la_cuenta_de_servicio_entra_y_usa_los_endpoints_de_i_3_4(client):
-    cuenta_de_servicio("webapp", RolSistema.WEBAPP)
+    cuenta_de_servicio("bonita", RolSistema.BONITA)
 
-    token = login(client, "webapp", "servicio-1234").json
+    token = login(client, "bonita", "servicio-1234").json
     reserva = client.post(
         URL, json=pedido(), headers={"Authorization": f"Bearer {token['access_token']}"}
     )
 
-    assert token["rol"] == "SISTEMA_WEBAPP"
+    assert token["rol"] == "SISTEMA_BONITA"
     assert reserva.status_code == 201
 
 
@@ -251,6 +251,68 @@ def test_no_se_baja_un_tope_por_debajo_de_lo_reservado_ni_se_quita_lo_usado(clie
     assert tope_bajo.json["codigo"] == "CATEGORIA_EN_USO"
     assert "PARAMEDICO" in tope_bajo.json["detalles"]["categorias"]
     assert justo.status_code == 200
+
+
+# --- Categorías de una ONG en nombre de ella (webapp) ---
+
+
+def test_la_webapp_consulta_y_actualiza_las_categorias_de_una_ong_por_cuit(client):
+    assert registrar(client).status_code == 201
+    url = f"/api/v1/ongs/cuit/{CUIT}"
+
+    consulta = client.get(url, headers=headers(RolSistema.WEBAPP))
+    cambio = client.put(
+        f"{url}/categorias",
+        json={"categorias": [{"tipo_recurso": "PARAMEDICO", "cantidad_maxima": 7}]},
+        headers=headers(RolSistema.WEBAPP),
+    )
+
+    assert consulta.status_code == 200
+    assert consulta.json["cuit"] == CUIT
+    assert cambio.status_code == 200, cambio.json
+    assert [
+        (c["tipo_recurso"]["codigo"], c["cantidad_total"]) for c in cambio.json["categorias"]
+    ] == [("PARAMEDICO", "7.00")]
+
+
+def test_por_cuit_rige_la_misma_regla_de_topes(client):
+    assert registrar(client).status_code == 201
+    reserva = client.post(
+        URL, json=pedido(cuit=CUIT, items=(("PARAMEDICO", 4),)), headers=headers()
+    )
+    assert reserva.status_code == 201, reserva.json
+
+    respuesta = client.put(
+        f"/api/v1/ongs/cuit/{CUIT}/categorias",
+        json={"categorias": [{"tipo_recurso": "PARAMEDICO", "cantidad_maxima": 3}]},
+        headers=headers(RolSistema.WEBAPP),
+    )
+
+    assert respuesta.status_code == 409
+    assert respuesta.json["codigo"] == "CATEGORIA_EN_USO"
+
+
+def test_por_cuit_solo_para_cuentas_de_servicio(client):
+    ong = token_de_la_ong(client)
+    url = f"/api/v1/ongs/cuit/{CUIT}"
+    cuerpo = {"categorias": [{"tipo_recurso": "PARAMEDICO", "cantidad_maxima": 1}]}
+
+    assert client.get(url).status_code == 401
+    assert client.get(url, headers=ong).status_code == 403
+    assert client.get(url, headers=headers(RolSistema.AUDITOR)).status_code == 200
+    assert (
+        client.put(
+            f"{url}/categorias", json=cuerpo, headers=headers(RolSistema.AUDITOR)
+        ).status_code
+        == 403
+    )
+    assert client.put(f"{url}/categorias", json=cuerpo, headers=ong).status_code == 403
+    assert (
+        client.get(
+            "/api/v1/ongs/cuit/30-99999999-9", headers=headers(RolSistema.WEBAPP)
+        ).status_code
+        == 404
+    )
 
 
 # --- Configuración y comandos ---

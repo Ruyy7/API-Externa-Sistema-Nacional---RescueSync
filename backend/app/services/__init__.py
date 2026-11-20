@@ -18,6 +18,7 @@ from app.services.convocatorias import ConvocatoriaService
 from app.services.liberaciones import LiberacionService
 from app.services.onboarding import OnboardingService
 from app.services.ongs import ONGService
+from app.services.orquestacion import OrquestacionService
 from app.services.recursos import RecursoService
 from app.services.validaciones import ValidacionService
 
@@ -33,6 +34,7 @@ class Servicios:
     auth: AuthService
     onboarding: OnboardingService
     liberaciones: LiberacionService
+    orquestacion: OrquestacionService
 
 
 def crear_servicios(config) -> Servicios:
@@ -44,6 +46,14 @@ def crear_servicios(config) -> Servicios:
     compromisos = CompromisoService(
         compromisos_repo,
         convocatorias_repo,
+        InventarioRepository(),
+        ongs_repo,
+        lock_timeout_ms=lock_timeout_ms,
+    )
+    liberaciones_repo = LiberacionRepository()
+    liberaciones = LiberacionService(
+        liberaciones_repo,
+        compromisos_repo,
         InventarioRepository(),
         ongs_repo,
         lock_timeout_ms=lock_timeout_ms,
@@ -65,11 +75,15 @@ def crear_servicios(config) -> Servicios:
             InventarioRepository(),
             lock_timeout_ms=lock_timeout_ms,
         ),
-        liberaciones=LiberacionService(
-            LiberacionRepository(),
+        liberaciones=liberaciones,
+        orquestacion=OrquestacionService(
             compromisos_repo,
+            convocatorias_repo,
             InventarioRepository(),
             ongs_repo,
+            liberaciones_repo,
+            compromisos,
+            liberaciones,
             lock_timeout_ms=lock_timeout_ms,
         ),
     )
