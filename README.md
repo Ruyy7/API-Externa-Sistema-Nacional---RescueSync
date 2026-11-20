@@ -56,6 +56,8 @@ POST /api/v1/login                 # I-3.1, devuelve el JWT
 POST /api/v1/ongs                  # I-3.1, registro directo de una ONG
 GET  /api/v1/ongs/yo               # I-3.1, token de ONG
 PUT  /api/v1/ongs/yo/categorias    # I-3.1, token de ONG
+GET  /api/v1/ongs/cuit/{cuit}      # inventario de una ONG, token de webapp o auditor
+PUT  /api/v1/ongs/cuit/{cuit}/categorias  # topes de una ONG en su nombre, token de webapp
 ```
 
 ## Login y registro de ONGs (I-3.1)

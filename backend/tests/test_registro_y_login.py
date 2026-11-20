@@ -253,6 +253,68 @@ def test_no_se_baja_un_tope_por_debajo_de_lo_reservado_ni_se_quita_lo_usado(clie
     assert justo.status_code == 200
 
 
+# --- Categorías de una ONG en nombre de ella (webapp) ---
+
+
+def test_la_webapp_consulta_y_actualiza_las_categorias_de_una_ong_por_cuit(client):
+    assert registrar(client).status_code == 201
+    url = f"/api/v1/ongs/cuit/{CUIT}"
+
+    consulta = client.get(url, headers=headers(RolSistema.WEBAPP))
+    cambio = client.put(
+        f"{url}/categorias",
+        json={"categorias": [{"tipo_recurso": "PARAMEDICO", "cantidad_maxima": 7}]},
+        headers=headers(RolSistema.WEBAPP),
+    )
+
+    assert consulta.status_code == 200
+    assert consulta.json["cuit"] == CUIT
+    assert cambio.status_code == 200, cambio.json
+    assert [
+        (c["tipo_recurso"]["codigo"], c["cantidad_total"]) for c in cambio.json["categorias"]
+    ] == [("PARAMEDICO", "7.00")]
+
+
+def test_por_cuit_rige_la_misma_regla_de_topes(client):
+    assert registrar(client).status_code == 201
+    reserva = client.post(
+        URL, json=pedido(cuit=CUIT, items=(("PARAMEDICO", 4),)), headers=headers()
+    )
+    assert reserva.status_code == 201, reserva.json
+
+    respuesta = client.put(
+        f"/api/v1/ongs/cuit/{CUIT}/categorias",
+        json={"categorias": [{"tipo_recurso": "PARAMEDICO", "cantidad_maxima": 3}]},
+        headers=headers(RolSistema.WEBAPP),
+    )
+
+    assert respuesta.status_code == 409
+    assert respuesta.json["codigo"] == "CATEGORIA_EN_USO"
+
+
+def test_por_cuit_solo_para_cuentas_de_servicio(client):
+    ong = token_de_la_ong(client)
+    url = f"/api/v1/ongs/cuit/{CUIT}"
+    cuerpo = {"categorias": [{"tipo_recurso": "PARAMEDICO", "cantidad_maxima": 1}]}
+
+    assert client.get(url).status_code == 401
+    assert client.get(url, headers=ong).status_code == 403
+    assert client.get(url, headers=headers(RolSistema.AUDITOR)).status_code == 200
+    assert (
+        client.put(
+            f"{url}/categorias", json=cuerpo, headers=headers(RolSistema.AUDITOR)
+        ).status_code
+        == 403
+    )
+    assert client.put(f"{url}/categorias", json=cuerpo, headers=ong).status_code == 403
+    assert (
+        client.get(
+            "/api/v1/ongs/cuit/30-99999999-9", headers=headers(RolSistema.WEBAPP)
+        ).status_code
+        == 404
+    )
+
+
 # --- Configuración y comandos ---
 
 
