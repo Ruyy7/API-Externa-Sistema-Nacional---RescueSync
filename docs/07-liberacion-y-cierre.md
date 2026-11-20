@@ -1,5 +1,7 @@
 # I-3.5 — Liberación y cierre
 
+> **Desde el 19/11/2026 (orquestación por Bonita):** las operaciones del proceso las invoca solo Bonita, y la API solo las acepta con el token de la cuenta `bonita`; la cuenta `webapp` conserva las consultas. Este documento describe el diseño anterior, en el que la webapp informaba las actividades, liberaba y cerraba. El flujo vigente, con lo que llama Bonita en cada tarea, está en [`08-orquestacion-bonita.md`](08-orquestacion-bonita.md).
+
 > "Endpoint para reportar la finalización de las actividades de la ONG y el cierre del proyecto, permitiendo liberar los recursos bloqueados a nivel nacional." (enunciado, ítem 3, punto 5)
 
 Es el último eslabón del proceso [E-7]: "las ONGs marcan sus actividades como finalizadas en la aplicación local. Una vez concluida su labor, la plataforma informa este estado al sistema centralizado a través de la API del Cloud, permitiendo marcar los proyectos como terminados y liberando formalmente los recursos de las ONGs". Se apoya en el modelo y el locking de `docs/04-bloqueo-y-compromiso.md`: el punto 4 termina cuando un compromiso queda `COMPROMETIDO`; desde ahí en adelante es de este punto.

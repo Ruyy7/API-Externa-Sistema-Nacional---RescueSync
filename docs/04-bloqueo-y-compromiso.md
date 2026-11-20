@@ -1,5 +1,7 @@
 # I-3.4 — Control de concurrencia y bloqueo
 
+> **Desde el 19/11/2026 (orquestación por Bonita):** las operaciones del proceso las invoca solo Bonita, y la API solo las acepta con el token de la cuenta `bonita`; la cuenta `webapp` conserva las consultas. Este documento describe el diseño anterior, en el que la webapp reservaba al presentar la oferta, la ajustaba o cancelaba y comprometía al adjudicar. El flujo vigente, con lo que llama Bonita en cada tarea, está en [`08-orquestacion-bonita.md`](08-orquestacion-bonita.md).
+
 > "Endpoints para validar restricciones y ejecutar el bloqueo/compromiso transaccional de recursos al ser adjudicados, implementando *locking* en PostgreSQL para prevenir *race conditions*." (enunciado, ítem 3, punto 4)
 
 Se apoya en el modelo de `docs/02-reservas-y-compromisos.md`.

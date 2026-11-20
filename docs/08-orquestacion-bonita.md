@@ -1,6 +1,6 @@
 # Orquestación por Bonita: qué llama el proceso en cada tarea
 
-> **Estado (19/11/2026):** implementado en la rama `feature/orquestacion-bonita`, con 42 tests (`backend/tests/test_orquestacion.py`). Los conectores están configurados en el proceso de Bonita (`docs/rescue-sync_e5.bos` del repositorio de la webapp) y el proceso completo se probó de punta a punta con el motor de Bonita, la webapp y esta API, en los cuatro caminos: feliz, reabrir, reformular y continuar parcial. También con la API caída: la tarea de Bonita queda fallida y, al reintentarla, la llamada se repite sin efecto doble.
+> **Estado (19/11/2026):** implementado en la rama `feature/orquestacion-bonita`, con 42 tests (`backend/tests/test_orquestacion.py`). Los conectores están configurados en el proceso de Bonita (`docs/rescue-sync_e5.bos` del repositorio de la webapp) y el proceso completo se probó de punta a punta con el motor de Bonita, la webapp y esta API, en los cuatro caminos: feliz, reabrir, reformular y continuar parcial. También con la API caída: la tarea de Bonita queda fallida y, al reintentarla, la llamada se repite sin efecto doble. Desde el 20/11, la API solo acepta esas operaciones con la cuenta `bonita` (sección 2) y las colecciones de Postman, incluida la nueva I-3.6, la usan (sección 7).
 
 ## 1. Por qué
 
@@ -23,7 +23,7 @@ Todas las llamadas se ubican por la emergencia, que es la variable `emergenciaId
 | *Liberar recursos* | `POST /emergencias/{emergenciaId}/liberacion` (ya existía, doc 07) | Libera lo que siga comprometido | `{}` |
 | *Cerrar proyecto* | `POST /emergencias/{emergenciaId}/cierre` (ya existía, doc 07) | Registra el cierre | `{}` o `{"observaciones": "..."}` |
 
-Las cuatro primeras son nuevas y solo las acepta la cuenta `bonita`: cualquier otra recibe `403 PROHIBIDO`.
+Todas las operaciones del proceso las acepta solo la cuenta `bonita` (`ORQUESTADOR` en `app/security.py`): con cualquier otra cuenta, incluida la de la webapp, responden `403 PROHIBIDO`. Vale también para las de a una oferta de I-3.3 a I-3.5 (`POST /validaciones`, `/compromisos`, su ajuste, cancelación y confirmación, las fechas y la reformulación de convocatorias, `POST /actividades`). La cuenta `webapp` conserva las consultas y el inventario de una ONG por CUIT, que es un ABM fuera del proceso. `tests/test_seguridad.py` lo verifica endpoint por endpoint, y falla si se agrega una escritura sin decidir si es del proceso.
 
 ## 3. Cambio de fondo: el bloqueo pasa de la presentación a la validación
 
@@ -163,5 +163,12 @@ Las operaciones en lote usan el locking de I-3.4 (`repositories/bloqueos.py`):
 ## 6. Pendiente
 
 - **Render:** redesplegar esta rama. Los conectores de Bonita llaman a los endpoints nuevos, que la versión publicada todavía no tiene. El detalle de los conectores está en el repositorio de la webapp (`docs/11-guia-bonita-proceso-completo.md`).
-- **Permisos de la cuenta `webapp`:** los endpoints anteriores (`POST /compromisos`, su ajuste, cancelación y confirmación, `POST /actividades`, la liberación y el cierre) siguen aceptando a la cuenta `webapp`. Para que la API haga cumplir el principio hay que quitársela, pero las colecciones de Postman de `docs/postman/` usan ese token. Es una decisión del equipo.
-- **Docs 04 y 07:** describen el flujo anterior, con la webapp como quien llama. Actualizarlos cuando se cierre el punto de los permisos.
+- **Render:** al redesplegar, la cuenta `webapp` deja de poder invocar las operaciones del proceso. Las colecciones de Postman ya usan la cuenta `bonita` (sección 7).
+
+## 7. Cómo probarlo con Postman
+
+`docs/postman/RescueSync-I-3.6.postman_collection.json` hace, en orden, lo que hacen los conectores de Bonita: validar y bloquear, desbloquear al reabrir, comprometer, informar actividades, liberar y cerrar. Cierra con una carpeta de seguridad que muestra que la API rechaza a la cuenta `webapp` en cada operación y la deja consultar. Se corre entera con **Run collection**, poniendo las contraseñas de `bonita` y `webapp` en sus variables; la guía con cada caso y su respuesta real está en `docs/postman/casos-de-prueba-i-3.6.md`.
+
+Las colecciones de I-3.1, I-3.4 e I-3.5 también pasaron a la cuenta `bonita`. Siguen probando los endpoints de a una oferta.
+
+Verificado el 20/11/2026 contra la API local, ejecutando los scripts de cada colección: I-3.1 (21 pruebas), I-3.4 (185), I-3.5 (231) e I-3.6 (100), sin fallas.

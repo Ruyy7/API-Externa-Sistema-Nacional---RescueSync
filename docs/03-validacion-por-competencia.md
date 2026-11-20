@@ -114,7 +114,7 @@ Errores (formato uniforme `{codigo, mensaje, detalles}`):
 ## Cómo probarlo
 
 - **API publicada:** https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1 (Swagger en https://rescuesync-sistema-nacional-41pb.onrender.com/api/v1/docs). En el plan gratuito de Render, el primer pedido después de 15 minutos sin uso tarda cerca de un minuto.
-- **Token:** `POST /api/v1/login` con la cuenta de servicio `webapp` (`{"usuario": "webapp", "password": "..."}`; la contraseña es la de `CUENTA_WEBAPP_PASSWORD`). El `access_token` se pega en **Authorize** del Swagger o como *Bearer Token* en Postman, y dura 8 horas.
+- **Token:** `POST /api/v1/login` con la cuenta de servicio `bonita` (`{"usuario": "bonita", "password": "..."}`; la contraseña es la de `CUENTA_BONITA_PASSWORD`). Es la única que puede validar: la validación la invoca solo Bonita. El `access_token` se pega en **Authorize** del Swagger o como *Bearer Token* en Postman, y dura 8 horas.
 - **En local:**
 
   ```bash
@@ -123,7 +123,7 @@ Errores (formato uniforme `{codigo, mensaje, detalles}`):
   docker compose exec api flask cuentas-servicio   # contraseñas de CUENTA_*_PASSWORD en .env
   ```
 
-  La base es `http://localhost:5001/api/v1`. Para desarrollo, `docker compose exec api flask token-servicio SISTEMA_WEBAPP` emite un token sin pasar por el login.
+  La base es `http://localhost:5001/api/v1`. Para desarrollo, `docker compose exec api flask token-servicio SISTEMA_BONITA` emite un token sin pasar por el login.
 - **Tests:** `docker compose run --rm api pytest tests/test_validaciones.py`.
 
 ## Casos de ejemplo
