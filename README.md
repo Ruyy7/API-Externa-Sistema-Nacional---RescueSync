@@ -158,6 +158,25 @@ Cada push a esa rama redespliega solo. Para desplegar desde `main`, se cambia la
   desde el panel; al redesplegar, el arranque vuelve a crear las tablas, el catálogo y las cuentas.
   Pagar la base solo hace falta si hay que conservar datos cargados.
 
+**Datos del seed (los mismos en local y en Render):** las ONGs de la webapp con el mismo CUIT
+(Rescatistas del Río, Alimentos Solidarios y Brigada Solidaria Sur, habilitadas), *Ayuda en
+Registro* pendiente para los casos de ONG no habilitada, certificaciones vigentes y el inventario de
+cada una **sin reservas ni compromisos**: lo bloqueado o comprometido que se vea sale de un
+compromiso real que pidió Bonita. Los tests usan su propio inventario, con reservas ajenas
+(`tests/conftest.py`).
+
+**Dejar Render con el seed limpio antes del coloquio** (el arranque solo carga el seed si la base
+está vacía): copiar la *External Database URL* desde el panel de la base, vaciarla y reiniciar el
+servicio (*Manual Deploy → Restart service*), que vuelve a crear tablas, seed y cuentas.
+
+```bash
+docker run --rm postgres:17-alpine psql "<External Database URL>" \
+  -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+```
+
+La precarga de casos que sigue a este paso está en el repositorio de la webapp
+(`docs/12-precarga-coloquio.md`).
+
 ## Tests y calidad
 
 ```bash
