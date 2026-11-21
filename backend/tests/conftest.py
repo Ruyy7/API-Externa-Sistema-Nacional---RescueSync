@@ -17,6 +17,20 @@ if not os.environ.get("TEST_DATABASE_URL"):
     )
 
 
+# Inventario de los tests: a diferencia del seed de la demo, arranca con reservas y compromisos
+# ajenos, para probar que las operaciones descuentan lo que ya está tomado.
+# (cuit, recurso, total, bloqueado, comprometido)
+INVENTARIO_DE_TEST = [
+    ("30-11111111-1", "PARAMEDICO", "12", "2", "0"),
+    ("30-11111111-1", "RESCATISTA", "20", "3", "2"),
+    ("30-11111111-1", "FRAZADA", "300", "20", "30"),
+    ("30-22222222-2", "RACION_ALIMENTO", "5000", "700", "300"),
+    ("30-22222222-2", "AGUA_POTABLE", "2500", "300", "200"),
+    ("30-22222222-2", "ALIMENTO_SECO", "1200", "100", "100"),
+    ("30-33333333-3", "PARAMEDICO", "100", "0", "0"),
+]
+
+
 class ConfigDeTest(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ["TEST_DATABASE_URL"]
@@ -41,7 +55,7 @@ def client(app):
 @pytest.fixture(autouse=True)
 def datos_limpios(app):
     with app.app_context():
-        cargar_datos_demo()
+        cargar_datos_demo(INVENTARIO_DE_TEST)
         yield
         db.session.remove()
         db.session.execute(

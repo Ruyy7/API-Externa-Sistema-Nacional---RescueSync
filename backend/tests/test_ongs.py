@@ -1,7 +1,7 @@
 def test_lista_solo_habilitadas(client):
     respuesta = client.get("/api/v1/ongs?habilitada=true")
     assert respuesta.status_code == 200
-    assert len(respuesta.json) == 2
+    assert len(respuesta.json) == 3
     assert all(ong["habilitada"] for ong in respuesta.json)
 
 

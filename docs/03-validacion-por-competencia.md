@@ -55,7 +55,7 @@ Pedido. Las cantidades pueden viajar como número o como texto y se redondean a 
 }
 ```
 
-Respuesta. Con el seed, esa ONG tiene 12 paramédicos y 2 bloqueados, así que le quedan 10 disponibles.
+Respuesta. Con el seed, esa ONG tiene 10 paramédicos y ninguno reservado, así que tiene 10 disponibles.
 
 ```json
 {
