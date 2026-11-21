@@ -60,10 +60,37 @@ CERTIFICACIONES = [
     ("MANIPULACION_ALIMENTOS", "Manipulación segura de alimentos"),
 ]
 
+# Los CUIT de las ONGs habilitadas son los mismos que carga el seed de la webapp.
 ONGS = [
     ("Rescatistas del Río", "30-11111111-1", EstadoONG.HABILITADA),
     ("Alimentos Solidarios", "30-22222222-2", EstadoONG.HABILITADA),
+    # Solo existe en la API, para los casos de ONG no habilitada (Postman I-3.4 e I-3.6).
     ("Ayuda en Registro", "30-33333333-3", EstadoONG.PENDIENTE),
+    # Va última para no cambiar los id de las otras tres.
+    ("Brigada Solidaria Sur", "30-44444444-4", EstadoONG.HABILITADA),
+]
+
+# (cuit, recurso, máximo de la categoría, bloqueado, comprometido). Todo arranca sin reservas ni
+# compromisos: lo que aparezca bloqueado o comprometido sale de un compromiso real que pidió
+# Bonita. Río y Alimentos conservan el disponible de siempre (los ejemplos de docs/03 siguen
+# dando lo mismo). Brigada tiene el margen para la precarga del coloquio, porque cada caso
+# terminado da de baja los consumibles (webapp: docs/12-precarga-coloquio.md).
+INVENTARIO = [
+    ("30-11111111-1", "PARAMEDICO", "10", "0", "0"),
+    ("30-11111111-1", "RESCATISTA", "15", "0", "0"),
+    ("30-11111111-1", "BOMBERO", "25", "0", "0"),
+    ("30-11111111-1", "FRAZADA", "250", "0", "0"),
+    ("30-22222222-2", "RACION_ALIMENTO", "4000", "0", "0"),
+    ("30-22222222-2", "AGUA_POTABLE", "2000", "0", "0"),
+    ("30-22222222-2", "ALIMENTO_SECO", "1000", "0", "0"),
+    ("30-44444444-4", "AGUA_POTABLE", "5000", "0", "0"),
+    ("30-44444444-4", "KIT_HIGIENE", "800", "0", "0"),
+    ("30-44444444-4", "KIT_MEDICAMENTOS", "200", "0", "0"),
+    ("30-44444444-4", "VOLUNTARIO_LOGISTICA", "20", "0", "0"),
+    ("30-44444444-4", "ENFERMERO", "8", "0", "0"),
+    ("30-44444444-4", "COLCHON", "100", "0", "0"),
+    # No debe entrar en la disponibilidad global por defecto por estar PENDIENTE.
+    ("30-33333333-3", "PARAMEDICO", "100", "0", "0"),
 ]
 
 
@@ -75,7 +102,8 @@ def _obtener_o_crear(modelo, datos: dict, **clave):
     return instancia
 
 
-def cargar_datos_demo() -> None:
+def cargar_datos_demo(inventario: list[tuple] = INVENTARIO) -> None:
+    """Catálogos, ONGs, certificaciones e inventario. Los tests pasan su propio inventario."""
     unidades = {
         codigo: _obtener_o_crear(
             UnidadMedida,
@@ -121,6 +149,8 @@ def cargar_datos_demo() -> None:
         ("30-11111111-1", "RESCATE_ACUATICO", date(2025, 4, 1), date(2027, 4, 1)),
         ("30-22222222-2", "LOGISTICA_HUMANITARIA", date(2025, 2, 15), None),
         ("30-22222222-2", "MANIPULACION_ALIMENTOS", date(2025, 3, 20), date(2027, 3, 20)),
+        ("30-44444444-4", "PRIMEROS_AUXILIOS", date(2025, 6, 1), date(2027, 6, 1)),
+        ("30-44444444-4", "LOGISTICA_HUMANITARIA", date(2025, 8, 15), None),
     ]
     for cuit, codigo, emision, vencimiento in asociaciones:
         clave = {"ong_id": ongs[cuit].id, "certificacion_id": certificaciones[codigo].id}
@@ -137,35 +167,14 @@ def cargar_datos_demo() -> None:
             asignacion.fecha_emision = emision
             asignacion.fecha_vencimiento = vencimiento
 
-    # (cuit, recurso, total, bloqueado, comprometido). Separar reserva de adjudicación permite
-    # evolucionar a locking transaccional sin cambiar el contrato de consulta.
-    inventario = [
-        ("30-11111111-1", "PARAMEDICO", "12", "2", "0"),
-        ("30-11111111-1", "RESCATISTA", "20", "3", "2"),
-        ("30-11111111-1", "FRAZADA", "300", "20", "30"),
-        ("30-22222222-2", "RACION_ALIMENTO", "5000", "700", "300"),
-        ("30-22222222-2", "AGUA_POTABLE", "2500", "300", "200"),
-        ("30-22222222-2", "ALIMENTO_SECO", "1200", "100", "100"),
-        # No debe entrar en la disponibilidad global por defecto por estar PENDIENTE.
-        ("30-33333333-3", "PARAMEDICO", "100", "0", "0"),
-    ]
     db.session.flush()
+    # Volver a correrlo repone los contadores: va sobre una base sin compromisos.
     for cuit, recurso, total, bloqueado, comprometido in inventario:
         clave = {"ong_id": ongs[cuit].id, "tipo_recurso_id": recursos[recurso].id}
-        item = db.session.scalar(select(InventarioRecurso).filter_by(**clave))
-        if item is None:
-            item = InventarioRecurso(
-                ong=ongs[cuit],
-                tipo_recurso=recursos[recurso],
-                cantidad_total=Decimal(total),
-                cantidad_bloqueada=Decimal(bloqueado),
-                cantidad_comprometida=Decimal(comprometido),
-            )
-            db.session.add(item)
-        else:
-            item.cantidad_total = Decimal(total)
-            item.cantidad_bloqueada = Decimal(bloqueado)
-            item.cantidad_comprometida = Decimal(comprometido)
+        item = _obtener_o_crear(InventarioRecurso, {}, **clave)
+        item.cantidad_total = Decimal(total)
+        item.cantidad_bloqueada = Decimal(bloqueado)
+        item.cantidad_comprometida = Decimal(comprometido)
 
     db.session.commit()
 

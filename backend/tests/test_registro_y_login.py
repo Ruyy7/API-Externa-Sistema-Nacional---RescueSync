@@ -98,7 +98,7 @@ def test_el_registro_valida_los_datos(client, cambios, codigo):
 
     assert respuesta.status_code == 422
     assert respuesta.json["codigo"] == codigo
-    assert db.session.query(ONG).filter_by(razon_social="Brigada Solidaria Sur").count() == 0
+    assert db.session.query(ONG).filter_by(cuit=CUIT).count() == 0
 
 
 def test_no_se_registra_dos_veces_el_mismo_cuit_ni_el_mismo_email(client):
